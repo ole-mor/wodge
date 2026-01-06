@@ -171,7 +171,25 @@ func (m *model) updateTable() {
 	// Show in reverse order (newest top)
 	for i := len(m.events) - 1; i >= 0; i-- {
 		e := m.events[i]
-		payloadStr := fmt.Sprintf("%v", e.Payload)
+		var payloadStr string
+
+		if e.Type == "REQUEST" {
+			// Try to parse the map
+			if data, ok := e.Payload.(map[string]interface{}); ok {
+				status := fmt.Sprintf("%v", data["status"])
+				method := fmt.Sprintf("%v", data["method"])
+				path := fmt.Sprintf("%v", data["path"])
+				duration := fmt.Sprintf("%v", data["duration_ms"])
+
+				// Gin-like format: | 200 | GET /path | 123ms |
+				payloadStr = fmt.Sprintf("| %s | %s %s | %sms |", status, method, path, duration)
+			} else {
+				payloadStr = fmt.Sprintf("%v", e.Payload)
+			}
+		} else {
+			payloadStr = fmt.Sprintf("%v", e.Payload)
+		}
+
 		// Truncate payload for display
 		if len(payloadStr) > 57 {
 			payloadStr = payloadStr[:57] + "..."
@@ -204,6 +222,7 @@ var baseStyle = lipgloss.NewStyle().
 
 func listenForEvents() tea.Msg {
 	if eventChan == nil {
+		eventChan = make(chan monitor.Event)
 		go startEventStream()
 		time.Sleep(100 * time.Millisecond) // Give it a sec to connect
 	}
@@ -212,7 +231,7 @@ func listenForEvents() tea.Msg {
 	return eventMsg(val)
 }
 
-var eventChan = make(chan monitor.Event)
+var eventChan chan monitor.Event
 
 func startEventStream() {
 	url := fmt.Sprintf("http://localhost:%d/wodge/monitor/events", currentPort)
