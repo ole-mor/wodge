@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"wodge/internal/monitor"
+	"wodge/internal/registry"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,10 +18,57 @@ import (
 )
 
 var monitorCmd = &cobra.Command{
-	Use:   "monitor",
-	Short: "Monitor the running Wodge backend",
+	Use:   "monitor [app_name]",
+	Short: "Monitor a running Wodge backend",
+	Long:  `Monitor a running Wodge backend. If no app name is specified, it will try to find one in the current directory or list available apps.`,
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		p := tea.NewProgram(initialModel())
+		reg, err := registry.Load()
+		if err != nil {
+			fmt.Printf("Error loading registry: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Handle 'monitor list' subcommand
+		if len(args) > 0 && args[0] == "list" {
+			listApps(reg)
+			return
+		}
+
+		var targetApp registry.WodgeApp
+
+		if len(args) == 1 {
+			appName := args[0]
+			var ok bool
+			targetApp, ok = reg.Apps[appName]
+			if !ok {
+				fmt.Printf("App '%s' not found running in registry.\n", appName)
+				listApps(reg)
+				os.Exit(1)
+			}
+		} else {
+			// No args, try to find one or list
+			if len(reg.Apps) == 1 {
+				for _, app := range reg.Apps {
+					targetApp = app
+				}
+				fmt.Printf("auto-selecting only running app: %s\n", targetApp.Name)
+			} else if len(reg.Apps) == 0 {
+				fmt.Println("No running Wodge apps found.")
+				os.Exit(0)
+			} else {
+				fmt.Println("Multiple apps running. Please specify one:")
+				listApps(reg)
+				os.Exit(0)
+			}
+		}
+
+		fmt.Printf("Connecting to %s on port %d...\n", targetApp.Name, targetApp.Port)
+
+		// Configure global eventChan for valid app
+		currentPort = targetApp.Port
+
+		p := tea.NewProgram(initialModel(targetApp.Name))
 		if _, err := p.Run(); err != nil {
 			fmt.Printf("Alas, there's been an error: %v", err)
 			os.Exit(1)
@@ -28,26 +76,40 @@ var monitorCmd = &cobra.Command{
 	},
 }
 
+func listApps(reg *registry.Registry) {
+	fmt.Println("\nRunning Wodge Apps:")
+	fmt.Printf("%-20s %-10s %-10s %s\n", "NAME", "PORT", "PID", "PATH")
+	fmt.Println(strings.Repeat("-", 60))
+	for _, app := range reg.Apps {
+		fmt.Printf("%-20s %-10d %-10d %s\n", app.Name, app.Port, app.PID, app.Path)
+	}
+	fmt.Println()
+}
+
 func init() {
 	rootCmd.AddCommand(monitorCmd)
 }
 
+// Global to pass to event listener (not elegant but works for this structure)
+var currentPort int = 8080
+
 // -- Bubble Tea Model --
 
 type model struct {
-	events []monitor.Event
-	table  table.Model
-	err    error
+	appName string
+	events  []monitor.Event
+	table   table.Model
+	err     error
 }
 
 type eventMsg monitor.Event
 type errMsg error
 
-func initialModel() model {
+func initialModel(appName string) model {
 	columns := []table.Column{
 		{Title: "Time", Width: 10},
 		{Title: "Type", Width: 10},
-		{Title: "Details", Width: 50},
+		{Title: "Details", Width: 60},
 	}
 
 	t := table.New(
@@ -69,8 +131,9 @@ func initialModel() model {
 	t.SetStyles(s)
 
 	return model{
-		events: []monitor.Event{},
-		table:  t,
+		appName: appName,
+		events:  []monitor.Event{},
+		table:   t,
 	}
 }
 
@@ -93,7 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.events = m.events[1:]
 		}
 		m.updateTable()
-		return m, listenForEvents // Continue listening (actually this should be a subscription loop)
+		return m, listenForEvents
 	case errMsg:
 		m.err = msg
 		return m, tea.Quit
@@ -110,8 +173,8 @@ func (m *model) updateTable() {
 		e := m.events[i]
 		payloadStr := fmt.Sprintf("%v", e.Payload)
 		// Truncate payload for display
-		if len(payloadStr) > 47 {
-			payloadStr = payloadStr[:47] + "..."
+		if len(payloadStr) > 57 {
+			payloadStr = payloadStr[:57] + "..."
 		}
 
 		rows = append(rows, table.Row{
@@ -127,22 +190,19 @@ func (m model) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n", m.err)
 	}
-	return baseStyle.Render(m.table.View()) + "\n  Press 'q' to quit.\n"
+
+	header := fmt.Sprintf("Monitoring: %s (Port %d)", m.appName, currentPort)
+	return baseStyle.Render(header+"\n\n"+m.table.View()) + "\n  Press 'q' to quit.\n"
 }
 
 var baseStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240"))
+	BorderForeground(lipgloss.Color("240")).
+	Padding(1)
 
 // -- Event Listener --
 
 func listenForEvents() tea.Msg {
-	// This is a simplified "poll" for the sake of the TUI command loop.
-	// In a real TUI, we'd start a separate goroutine that pumps msgs to the program.
-	// But since Init() expects a single Cmd that returns a single Msg, we need a slight adapter.
-	// For this proof of concept, we'll try to connect once and block until an event comes.
-
-	// Check connection existence (simple hack for now: better struct needed)
 	if eventChan == nil {
 		go startEventStream()
 		time.Sleep(100 * time.Millisecond) // Give it a sec to connect
@@ -155,7 +215,8 @@ func listenForEvents() tea.Msg {
 var eventChan = make(chan monitor.Event)
 
 func startEventStream() {
-	resp, err := http.Get("http://localhost:8080/wodge/monitor/events")
+	url := fmt.Sprintf("http://localhost:%d/wodge/monitor/events", currentPort)
+	resp, err := http.Get(url)
 	if err != nil {
 		// Send error maybe? for now retry
 		time.Sleep(1 * time.Second)

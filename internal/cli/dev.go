@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"wodge/internal/generator"
+	"wodge/internal/registry"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
@@ -42,6 +45,33 @@ var devCmd = &cobra.Command{
 func runDev(cmd *cobra.Command, args []string) {
 	fmt.Println("Starting Wodge development server...")
 
+	// 0. Register App
+	cwd, _ := os.Getwd()
+	appName := filepath.Base(cwd)
+	reg, err := registry.Load()
+	if err == nil {
+		if err := reg.Register(appName, 8080, cwd); err != nil {
+			fmt.Printf("Warning: Failed to register app: %v\n", err)
+		} else {
+			fmt.Printf("Registered app '%s' in Wodge registry\n", appName)
+			defer func() {
+				reg.Unregister(appName)
+				fmt.Printf("Unregistered app '%s'\n", appName)
+			}()
+		}
+	}
+
+	// Handle graceful shutdown to ensure defer runs
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		// Cleanup logic is in defers, we need to manually trigger them if we exit here,
+		// but since we are blocking on viteCmd.Run() below, we might not reach here unless we architecture differently.
+		// Actually, standard Ctrl+C propagates to child processes (vite) which exit, causing viteCmd.Run() to return,
+		// allowing main function defers to run.
+	}()
+
 	// 1. Generate routes initially
 	err := generator.GenerateRoutes("src")
 	if err != nil {
@@ -51,7 +81,8 @@ func runDev(cmd *cobra.Command, args []string) {
 	}
 
 	// 2. Setup File Watcher
-	watcher, err := fsnotify.NewWatcher()
+	var watcher *fsnotify.Watcher
+	watcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		fmt.Printf("Error creating file watcher: %v\n", err)
 		os.Exit(1)
