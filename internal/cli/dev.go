@@ -37,12 +37,23 @@ func findWodgeRoot() (string, error) {
 }
 
 var devCmd = &cobra.Command{
-	Use:   "dev",
+	Use:   "dev [app_name]",
 	Short: "Run the Wodge application in development mode",
+	Long:  `Run the Wodge application in development mode. If [app_name] is provided, it switches to that directory first.`,
+	Args:  cobra.MaximumNArgs(1),
 	Run:   runDev,
 }
 
 func runDev(cmd *cobra.Command, args []string) {
+	if len(args) > 0 {
+		targetDir := args[0]
+		if err := os.Chdir(targetDir); err != nil {
+			fmt.Printf("Error switching to directory '%s': %v\n", targetDir, err)
+			os.Exit(1)
+		}
+		fmt.Printf("Switched to directory: %s\n", targetDir)
+	}
+
 	fmt.Println("Starting Wodge development server...")
 
 	// 0. Register App
