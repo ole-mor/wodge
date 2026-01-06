@@ -7,6 +7,7 @@ import (
 	"wodge/internal/drivers/postgres"
 	"wodge/internal/drivers/rabbitmq"
 	"wodge/internal/drivers/redis"
+	"wodge/internal/middleware"
 	"wodge/internal/monitor"
 	"wodge/internal/services"
 
@@ -26,8 +27,8 @@ func main() {
 
 	r := gin.Default()
 
-	// Add Monitor Middleware
-	r.Use(monitor.Middleware())
+	// Add Request Logging Middleware
+	r.Use(middleware.RequestLogger())
 
 	// Enable CORS for dev server
 	r.Use(func(c *gin.Context) {
