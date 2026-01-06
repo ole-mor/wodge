@@ -10,7 +10,7 @@ import (
 )
 
 // TODO: Replace with your actual GitHub repository URL
-const repoURL = "https://github.com/oleornaes/wodge.git"
+const repoURL = "https://github.com/ole-mor/wodge.git"
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
