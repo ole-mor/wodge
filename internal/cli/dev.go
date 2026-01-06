@@ -73,7 +73,7 @@ func runDev(cmd *cobra.Command, args []string) {
 	}()
 
 	// 1. Generate routes initially
-	err := generator.GenerateRoutes("src")
+	err = generator.GenerateRoutes("src")
 	if err != nil {
 		fmt.Printf("Warning: Failed to generate routes: %v\n", err)
 	} else {
