@@ -1,5 +1,5 @@
 # Binaries
-wodge
+/wodge
 wodge_local
 *.exe
 *.exe~
