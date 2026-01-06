@@ -20,6 +20,7 @@ var addAPICmd = &cobra.Command{
 	Short: "Add a new API route or service client to the app",
 	Long: `Adds a new API. 
 If 'crud [name]' is specified, it creates a simple CRUD skeleton.
+If name is 'health', it adds a health check client.
 If name is 'postgres', 'redis', or 'rabbitmq', it adds a client library for that service.`,
 	Args: cobra.RangeArgs(1, 2),
 	Run:  runAddAPI,
@@ -62,6 +63,8 @@ func runAddAPI(cmd *cobra.Command, args []string) {
 		addRedisClient(appRoot)
 	case "rabbitmq":
 		addRabbitMQClient(appRoot)
+	case "health":
+		addHealthRoute(appRoot)
 	default:
 		// Default behavior: Create a generic API route
 		addGenericAPIRoute(appRoot, apiName)
@@ -151,6 +154,22 @@ export const postgres = {
 	writeFiles(appRoot, files)
 	fmt.Println("Postgres client added to src/lib/postgres.ts")
 	fmt.Println("Make sure POSTGRES_DSN is set in your environment variables.")
+}
+
+func addHealthRoute(appRoot string) {
+	fmt.Println("Adding Health Client...")
+	files := map[string]string{
+		"src/api/health.ts": `import { apiGet } from '@/lib/wodge';
+
+export const HealthService = {
+  async check(): Promise<{ status: string }> {
+    return apiGet('/health');
+  }
+};
+`,
+	}
+	writeFiles(appRoot, files)
+	fmt.Println("Health client added to src/api/health.ts")
 }
 
 func addRedisClient(appRoot string) {
