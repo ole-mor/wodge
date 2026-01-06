@@ -14,11 +14,13 @@ var addCmd = &cobra.Command{
 }
 
 var addAPICmd = &cobra.Command{
-	Use:   "api [name]",
+	Use:   "api [name] OR api crud [name]",
 	Short: "Add a new API route or service client to the app",
-	Long:  `Adds a new API. If name is 'postgres', 'redis', or 'rabbitmq', it adds a client library for that service.`,
-	Args:  cobra.ExactArgs(1),
-	Run:   runAddAPI,
+	Long: `Adds a new API. 
+If 'crud [name]' is specified, it creates a simple CRUD skeleton.
+If name is 'postgres', 'redis', or 'rabbitmq', it adds a client library for that service.`,
+	Args: cobra.RangeArgs(1, 2),
+	Run:  runAddAPI,
 }
 
 func init() {
@@ -26,6 +28,22 @@ func init() {
 }
 
 func runAddAPI(cmd *cobra.Command, args []string) {
+	// Handle special sub-case: crud
+	if args[0] == "crud" {
+		if len(args) < 2 {
+			fmt.Println("Error: Please specify a name for the CRUD API. usage: wodge add api crud <name>")
+			os.Exit(1)
+		}
+		apiName := args[1]
+		appRoot, err := findAppRoot()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		addCRUDRoute(appRoot, apiName)
+		return
+	}
+
 	apiName := args[0]
 	appRoot, err := findAppRoot()
 	if err != nil {
@@ -66,6 +84,33 @@ func addGenericAPIRoute(appRoot, apiName string) {
 	}
 
 	routeContent := generateAPIRoute(apiName)
+	if err := os.WriteFile(routePath, []byte(routeContent), 0644); err != nil {
+		fmt.Printf("Error writing route file: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Created %s\n", filepath.Join("src/api", routeFileName))
+	fmt.Println("The routes will be regenerated on next save")
+}
+
+func addCRUDRoute(appRoot, apiName string) {
+	fmt.Printf("Creating CRUD API: %s\n", apiName)
+
+	apiDir := filepath.Join(appRoot, "src", "api")
+	if err := os.MkdirAll(apiDir, 0755); err != nil {
+		fmt.Printf("Error creating api directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	routeFileName := fmt.Sprintf("%s.crud.route.ts", apiName)
+	routePath := filepath.Join(apiDir, routeFileName)
+
+	if _, err := os.Stat(routePath); !os.IsNotExist(err) {
+		fmt.Printf("Error: CRUD API '%s' already exists\n", apiName)
+		os.Exit(1)
+	}
+
+	routeContent := generateCRUDApiRoute(apiName)
 	if err := os.WriteFile(routePath, []byte(routeContent), 0644); err != nil {
 		fmt.Printf("Error writing route file: %v\n", err)
 		os.Exit(1)
@@ -164,8 +209,6 @@ func writeFiles(root string, files map[string]string) {
 	}
 }
 
-// ... existing helper functions (findAppRoot, etc) ...
-
 func findAppRoot() (string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -222,4 +265,55 @@ export async function POST(req: Request) {
   }
 }
 `, name, name)
+}
+
+func generateCRUDApiRoute(name string) string {
+	// Generate a file with GET (List), GET (ByID), POST (Create), PUT (Update), DELETE handlers
+	return fmt.Sprintf(`// Mock DB for demonstration (in real app, use postgres/redis clients)
+const DB = new Map<string, any>();
+
+// GET /api/%s
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+
+  try {
+    if (id) {
+       // Get One
+       const item = DB.get(id);
+       if (!item) return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404 });
+       return new Response(JSON.stringify(item));
+    } else {
+       // List All
+       const items = Array.from(DB.values());
+       return new Response(JSON.stringify(items));
+    }
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Internal Error' }), { status: 500 });
+  }
+}
+
+// POST /api/%s
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const id = Math.random().toString(36).substring(7);
+    const item = { id, ...body, createdAt: new Date() };
+    DB.set(id, item);
+    return new Response(JSON.stringify(item), { status: 201 });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Invalid Data' }), { status: 400 });
+  }
+}
+
+// DELETE /api/%s
+export async function DELETE(req: Request) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  if (!id) return new Response(JSON.stringify({ error: 'ID required' }), { status: 400 });
+  
+  DB.delete(id);
+  return new Response(JSON.stringify({ status: 'deleted' }));
+}
+`, name, name, name)
 }
