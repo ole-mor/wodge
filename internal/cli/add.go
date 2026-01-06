@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -16,7 +15,8 @@ var addCmd = &cobra.Command{
 
 var addAPICmd = &cobra.Command{
 	Use:   "api [name]",
-	Short: "Add a new API route to the app",
+	Short: "Add a new API route or service client to the app",
+	Long:  `Adds a new API. If name is 'postgres', 'redis', or 'rabbitmq', it adds a client library for that service.`,
 	Args:  cobra.ExactArgs(1),
 	Run:   runAddAPI,
 }
@@ -27,39 +27,45 @@ func init() {
 
 func runAddAPI(cmd *cobra.Command, args []string) {
 	apiName := args[0]
-
-	// Find the app root by looking for src/routes directory
 	appRoot, err := findAppRoot()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
-		fmt.Println("Please run this command from within a Wodge app directory (where src/routes exists)")
+		fmt.Println("Please run this command from within a Wodge app directory")
 		os.Exit(1)
 	}
 
-	fmt.Printf("Found app at: %s\n", appRoot)
+	// Handle Predefined Services
+	switch apiName {
+	case "postgres":
+		addPostgresClient(appRoot)
+	case "redis":
+		addRedisClient(appRoot)
+	case "rabbitmq":
+		addRabbitMQClient(appRoot)
+	default:
+		// Default behavior: Create a generic API route
+		addGenericAPIRoute(appRoot, apiName)
+	}
+}
+
+func addGenericAPIRoute(appRoot, apiName string) {
 	fmt.Printf("Creating API: %s\n", apiName)
 
-	// Create the /api directory if it doesn't exist
 	apiDir := filepath.Join(appRoot, "src", "api")
 	if err := os.MkdirAll(apiDir, 0755); err != nil {
 		fmt.Printf("Error creating api directory: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Create the route file
 	routeFileName := fmt.Sprintf("%s.route.ts", apiName)
 	routePath := filepath.Join(apiDir, routeFileName)
 
-	// Check if file already exists
 	if _, err := os.Stat(routePath); !os.IsNotExist(err) {
 		fmt.Printf("Error: API '%s' already exists\n", apiName)
 		os.Exit(1)
 	}
 
-	// Generate the route template
 	routeContent := generateAPIRoute(apiName)
-
-	// Write the file
 	if err := os.WriteFile(routePath, []byte(routeContent), 0644); err != nil {
 		fmt.Printf("Error writing route file: %v\n", err)
 		os.Exit(1)
@@ -69,8 +75,98 @@ func runAddAPI(cmd *cobra.Command, args []string) {
 	fmt.Println("The routes will be regenerated on next save")
 }
 
+func addPostgresClient(appRoot string) {
+	fmt.Println("Adding Postgres Client...")
+	files := map[string]string{
+		"src/lib/postgres.ts": `import { apiPost } from './wodge';
+
+export interface QueryResult<T = any> {
+  [key: string]: any;
+}
+
+export const postgres = {
+  /**
+   * Execute a SELECT query
+   */
+  async query<T = any>(query: string, args: any[] = []): Promise<T[]> {
+    return apiPost('/postgres/query', { query, args });
+  },
+
+  /**
+   * Execute an INSERT/UPDATE/DELETE query
+   */
+  async execute(query: string, args: any[] = []): Promise<{ rows_affected: number }> {
+    return apiPost('/postgres/execute', { query, args });
+  }
+};
+`,
+	}
+	writeFiles(appRoot, files)
+	fmt.Println("Postgres client added to src/lib/postgres.ts")
+	fmt.Println("Make sure POSTGRES_DSN is set in your environment variables.")
+}
+
+func addRedisClient(appRoot string) {
+	fmt.Println("Adding Redis Client...")
+	files := map[string]string{
+		"src/lib/redis.ts": `import { apiGet, apiPost, apiDelete } from './wodge';
+
+export const redis = {
+  async get(key: string): Promise<string | null> {
+    try {
+        const res = await apiGet('/redis/' + encodeURIComponent(key));
+        return res.value;
+    } catch (e) {
+        return null;
+    }
+  },
+
+  async set(key: string, value: string, ttl: number = 0): Promise<void> {
+    return apiPost('/redis', { key, value, ttl });
+  },
+
+  async delete(key: string): Promise<void> {
+    return apiDelete('/redis/' + encodeURIComponent(key));
+  }
+};
+`,
+	}
+	writeFiles(appRoot, files)
+	fmt.Println("Redis client added to src/lib/redis.ts")
+	fmt.Println("Make sure REDIS_ADDR (and optionally REDIS_PASSWORD) is set.")
+}
+
+func addRabbitMQClient(appRoot string) {
+	fmt.Println("Adding RabbitMQ Client...")
+	files := map[string]string{
+		"src/lib/rabbitmq.ts": `import { apiPost } from './wodge';
+
+export const rabbitmq = {
+  async publish(topic: string, message: string): Promise<void> {
+    return apiPost('/queue/publish', { topic, message });
+  }
+};
+`,
+	}
+	writeFiles(appRoot, files)
+	fmt.Println("RabbitMQ client added to src/lib/rabbitmq.ts")
+	fmt.Println("Make sure RABBITMQ_URL is set.")
+}
+
+func writeFiles(root string, files map[string]string) {
+	for path, content := range files {
+		fullPath := filepath.Join(root, path)
+		dir := filepath.Dir(fullPath)
+		_ = os.MkdirAll(dir, 0755)
+		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+			fmt.Printf("Error writing %s: %v\n", path, err)
+		}
+	}
+}
+
+// ... existing helper functions (findAppRoot, etc) ...
+
 func findAppRoot() (string, error) {
-	// Start from current directory and walk up looking for src/routes
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("could not get current directory: %v", err)
@@ -84,7 +180,6 @@ func findAppRoot() (string, error) {
 
 		parent := filepath.Dir(currentDir)
 		if parent == currentDir {
-			// Reached root directory
 			return "", fmt.Errorf("could not find Wodge app root (no src/routes directory found)")
 		}
 		currentDir = parent
@@ -92,7 +187,6 @@ func findAppRoot() (string, error) {
 }
 
 func generateAPIRoute(name string) string {
-	// Create a simple API route handler that delegates to the backend
 	return fmt.Sprintf(`import { apiGet, apiPost } from '@/lib/wodge';
 
 // Delegate GET requests to the backend API
@@ -128,14 +222,4 @@ export async function POST(req: Request) {
   }
 }
 `, name, name)
-}
-
-func toPascalCase(s string) string {
-	parts := strings.Split(s, "-")
-	for i, part := range parts {
-		if len(part) > 0 {
-			parts[i] = strings.ToUpper(string(part[0])) + part[1:]
-		}
-	}
-	return strings.Join(parts, "")
 }

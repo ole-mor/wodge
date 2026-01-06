@@ -58,6 +58,7 @@ func createApp(name string) {
 		"tsconfig.json":               templates.TsConfig,
 		"tsconfig.node.json":          templates.TsConfigNode,
 		"index.html":                  templates.IndexHTML,
+		"src/lib/wodge.ts":            templates.WodgeClientTS,
 		"src/entry-client.tsx":        templates.EntryClient,
 		"src/entry-server.tsx":        templates.EntryServer,
 		"src/App.tsx":                 templates.AppTSX,
