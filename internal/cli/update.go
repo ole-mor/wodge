@@ -42,7 +42,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	// 3. Build the binary
 	fmt.Println("Building wodge...")
-	buildCmd := exec.Command("go", "build", "-o", "wodge", "cmd/wodge/main.go")
+	buildCmd := exec.Command("go", "build", "-o", "wodge", "./cmd/wodge")
 	buildCmd.Dir = tempDir
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
