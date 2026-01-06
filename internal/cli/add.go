@@ -268,9 +268,8 @@ export async function POST(req: Request) {
 }
 
 func generateCRUDApiRoute(name string) string {
-	// Generate a file with GET (List), GET (ByID), POST (Create), PUT (Update), DELETE handlers
-	return fmt.Sprintf(`// Mock DB for demonstration (in real app, use postgres/redis clients)
-const DB = new Map<string, any>();
+	// Generate a file with GET (List), GET (ByID), POST (Create), DELETE handlers using the Postgres client
+	return fmt.Sprintf(`import { postgres } from '@/lib/postgres';
 
 // GET /api/%s
 export async function GET(req: Request) {
@@ -280,16 +279,17 @@ export async function GET(req: Request) {
   try {
     if (id) {
        // Get One
-       const item = DB.get(id);
-       if (!item) return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404 });
-       return new Response(JSON.stringify(item));
+       const rows = await postgres.query('SELECT * FROM %s WHERE id = $1', [id]);
+       if (rows.length === 0) return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404 });
+       return new Response(JSON.stringify(rows[0]));
     } else {
        // List All
-       const items = Array.from(DB.values());
-       return new Response(JSON.stringify(items));
+       const rows = await postgres.query('SELECT * FROM %s');
+       return new Response(JSON.stringify(rows));
     }
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Internal Error' }), { status: 500 });
+    console.error('Database Error:', error);
+    return new Response(JSON.stringify({ error: 'Database API Error' }), { status: 500 });
   }
 }
 
@@ -297,12 +297,20 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const id = Math.random().toString(36).substring(7);
-    const item = { id, ...body, createdAt: new Date() };
-    DB.set(id, item);
-    return new Response(JSON.stringify(item), { status: 201 });
+    // Valid for Postgres simple insert. Assumes body keys match columns.
+    // In a real app, you might want more strict validation here.
+    const keys = Object.keys(body);
+    const values = Object.values(body);
+    const placeholders = keys.map((_, i) => '$' + (i + 1)).join(', ');
+    const columns = keys.join(', ');
+    
+    const query = 'INSERT INTO %s (' + columns + ') VALUES (' + placeholders + ')';
+    
+    await postgres.execute(query, values);
+    return new Response(JSON.stringify({ status: 'created' }), { status: 201 });
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Invalid Data' }), { status: 400 });
+    console.error('Database Error:', error);
+    return new Response(JSON.stringify({ error: 'Invalid Data or DB Error' }), { status: 400 });
   }
 }
 
@@ -312,8 +320,12 @@ export async function DELETE(req: Request) {
   const id = url.searchParams.get('id');
   if (!id) return new Response(JSON.stringify({ error: 'ID required' }), { status: 400 });
   
-  DB.delete(id);
-  return new Response(JSON.stringify({ status: 'deleted' }));
+  try {
+    await postgres.execute('DELETE FROM %s WHERE id = $1', [id]);
+    return new Response(JSON.stringify({ status: 'deleted' }));
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Database API Error' }), { status: 500 });
+  }
 }
-`, name, name, name)
+`, name, name, name, name, name, name, name)
 }
