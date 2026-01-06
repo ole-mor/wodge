@@ -7,6 +7,7 @@ import (
 	"wodge/internal/drivers/postgres"
 	"wodge/internal/drivers/rabbitmq"
 	"wodge/internal/drivers/redis"
+	"wodge/internal/monitor"
 	"wodge/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,9 @@ func main() {
 	initServices()
 
 	r := gin.Default()
+
+	// Add Monitor Middleware
+	r.Use(monitor.Middleware())
 
 	// Enable CORS for dev server
 	r.Use(func(c *gin.Context) {
@@ -44,6 +48,9 @@ func main() {
 	r.GET("/api/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "wow"})
 	})
+
+	// Monitor Event Stream
+	r.GET("/wodge/monitor/events", monitor.Handler)
 
 	// Service Routes
 	api := r.Group("/api")
