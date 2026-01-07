@@ -29,7 +29,7 @@ Available subcommands:
   monitor [app]          Connect to the app's event stream
   monitor stop [app]     Stop the running app instance
   monitor remove [app]   Remove form registry (stops first if running)`,
-	Args: cobra.MaximumNArgs(1),
+	Args: cobra.RangeArgs(0, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		reg, err := registry.Load()
 		if err != nil {
