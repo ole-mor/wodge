@@ -190,7 +190,12 @@ export default function Home() {
       
       {/* Logo */}
       <div className="text-center mb-12">
-        <h1 className="text-5xl font-bold text-primary mb-3">WODGE</h1>
+        <img 
+          src="/logo.png" 
+          alt="Wodge Logo" 
+          className="h-24 w-auto mx-auto mb-6"
+        />
+        <h1 className="text-4xl font-bold text-primary mb-3">WODGE</h1>
         <p className="text-muted-foreground">Modern web application framework</p>
       </div>
 

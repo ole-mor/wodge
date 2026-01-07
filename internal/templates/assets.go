@@ -1,5 +1,14 @@
 package templates
 
-// Logo files - empty for now, will be added in future update
-var LogoPNG = []byte{}
-var LogoTextPNG = []byte{}
+import (
+	_ "embed"
+)
+
+//go:embed assets/logo.png
+var LogoPNG []byte
+
+//go:embed assets/logo_text.png
+var LogoTextPNG []byte
+
+//go:embed assets/logo.ico
+var LogoICO []byte

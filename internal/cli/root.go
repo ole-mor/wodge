@@ -71,18 +71,46 @@ func createApp(name string) {
 		"src/routes/home.route.tsx": templates.HomeRoute,
 	}
 
+	// 4. Generate standard files
 	for path, content := range files {
 		fullPath := filepath.Join(name, path)
-		dir := filepath.Dir(fullPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			fmt.Printf("Error creating directory %s: %v\n", dir, err)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			fmt.Printf("Error creating directory for %s: %v\n", path, err)
+			return
+		}
+
+		// Check if file already exists
+		if _, err := os.Stat(fullPath); err == nil {
+			fmt.Printf("File %s already exists, skipping...\n", path)
 			continue
 		}
+
 		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-			fmt.Printf("Error writing file %s: %v\n", fullPath, err)
-		} else {
-			fmt.Printf("Created %s\n", path)
+			fmt.Printf("Error writing %s: %v\n", path, err)
+			return
 		}
+		fmt.Printf("Created %s\n", path)
+	}
+
+	// 5. Generate binary assets
+	binaryFiles := map[string][]byte{
+		"public/logo.png":      templates.LogoPNG,
+		"public/logo_text.png": templates.LogoTextPNG,
+		"public/favicon.ico":   templates.LogoICO,
+	}
+
+	for path, content := range binaryFiles {
+		fullPath := filepath.Join(name, path)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			fmt.Printf("Error creating directory for %s: %v\n", path, err)
+			return
+		}
+
+		if err := os.WriteFile(fullPath, content, 0644); err != nil {
+			fmt.Printf("Error writing %s: %v\n", path, err)
+			return
+		}
+		fmt.Printf("Created %s\n", path)
 	}
 
 	fmt.Printf("\nInstalling dependencies...\n")
