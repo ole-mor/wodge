@@ -90,6 +90,7 @@ func Start(port int) {
 
 		// QAST Routes
 		api.POST("/qast/ask", handleQastAsk)
+		api.POST("/qast/ingest", handleQastIngest)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -297,4 +298,26 @@ func handleQastAsk(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"answer": answer, "context": context})
+}
+
+// POST /api/qast/ingest { "text": "..." }
+func handleQastIngest(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	var req struct {
+		Text   string `json:"text"`
+		UserID string `json:"user_id"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	result, err := qastSvc.IngestGraph(c.Request.Context(), req.Text, req.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "result": result})
 }

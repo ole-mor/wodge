@@ -246,6 +246,10 @@ func addQastClient(appRoot string) {
 export const qast = {
   async ask(query: string, userId: string = "default-user", expertise: string = "novice"): Promise<{ answer: string; context: string[] }> {
     return apiPost('/qast/ask', { query, user_id: userId, expertise_level: expertise });
+  },
+
+  async ingest(text: string, userId: string = "default-user"): Promise<{ status: string; result: any }> {
+    return apiPost('/qast/ingest', { text, user_id: userId });
   }
 };
 `,
