@@ -15,7 +15,7 @@ var runCmd = &cobra.Command{
 Examples:
   wodge run my-app dev      # Start dev server for my-app
   wodge run my-app          # Defaults to 'dev'`,
-	Args: cobra.RangeArgs(1, 2),
+	Args: cobra.RangeArgs(0, 2),
 	Run:  executeRun,
 }
 
