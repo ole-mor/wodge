@@ -186,134 +186,122 @@ const HomeRoute = `import React from 'react';
 
 export default function Home() {
   return (
-    <div className="max-w-6xl mx-auto space-y-12">
-      {/* Hero Section */}
-      <div className="flex flex-col items-center text-center space-y-6 py-12">
-        <div className="text-6xl font-bold text-primary">
-          WODGE
-        </div>
-        <h1 className="text-5xl font-extrabold tracking-tight">
-          Welcome to Wodge
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl">
-          A modern, compliant web application platform. Build faster with integrated services and beautiful UI components.
-        </p>
+    <div className="max-w-4xl mx-auto py-8 font-mono text-sm">
+      
+      {/* Header */}
+      <div className="mb-8 pb-4 border-b border-border">
+        <div className="text-3xl font-bold text-primary mb-2">WODGE</div>
+        <div className="text-xs text-muted-foreground">v0.1.0 • Modern web application framework</div>
       </div>
 
-      {/* Quick Start */}
-      <div className="rounded-lg border-2 border-primary/20 bg-card/50 p-8">
-        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <span className="text-3xl">🚀</span> Quick Start
-        </h2>
-        <p className="mb-4 text-foreground/80">
-          Edit <code className="bg-primary/10 px-2 py-1 rounded text-primary">src/routes/home.route.tsx</code> and see changes instantly.
-        </p>
-      </div>
-
-      {/* Features Grid */}
-      <div>
-        <h2 className="text-3xl font-bold mb-8 text-center">Add Features On-Demand</h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          
-          {/* UI Components Card */}
-          <div className="rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
-            <div className="flex items-start gap-4">
-              <span className="text-4xl">🎨</span>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold mb-3">UI Components</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Add beautiful, pre-styled components with Tailwind CSS and Framer Motion
-                </p>
-                <div className="space-y-2">
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add ui button</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add ui card</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add ui navbar</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add ui theme-provider</code>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Backend Services Card */}
-          <div className="rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
-            <div className="flex items-start gap-4">
-              <span className="text-4xl">💾</span>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold mb-3">Backend Services</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Integrate production-ready services with a single command
-                </p>
-                <div className="space-y-2">
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api postgres</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api redis</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api rabbitmq</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api qast</code>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* CRUD APIs Card */}
-          <div className="rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
-            <div className="flex items-start gap-4">
-              <span className="text-4xl">⚡</span>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold mb-3">CRUD APIs</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Generate complete CRUD endpoints with frontend integration
-                </p>
-                <div className="space-y-2">
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api crud users</code>
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api crud products</code>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Health Check Card */}
-          <div className="rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
-            <div className="flex items-start gap-4">
-              <span className="text-4xl">❤️</span>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold mb-3">Health Monitoring</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Add health check endpoints for monitoring
-                </p>
-                <div className="space-y-2">
-                  <code className="block bg-muted px-3 py-2 rounded text-sm">wodge add api health</code>
-                </div>
-              </div>
-            </div>
-          </div>
-
+      {/* Quick Actions */}
+      <div className="mb-8">
+        <div className="text-xs font-bold text-muted-foreground mb-3">QUICK START</div>
+        <div className="space-y-1 text-xs">
+          <div><span className="text-primary">→</span> Edit <code className="text-foreground/80">src/routes/home.route.tsx</code> to modify this page</div>
+          <div><span className="text-primary">→</span> Run <code className="text-foreground/80">wodge add -h</code> to see available commands</div>
         </div>
       </div>
 
-      {/* Tech Stack */}
-      <div className="rounded-lg border border-border bg-card p-8">
-        <h2 className="text-2xl font-bold mb-6 text-center">Built With Modern Tech</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div className="p-4">
-            <div className="text-3xl mb-2">⚛️</div>
-            <div className="font-semibold">React 18</div>
-            <div className="text-xs text-muted-foreground">Frontend</div>
-          </div>
-          <div className="p-4">
-            <div className="text-3xl mb-2">🎨</div>
-            <div className="font-semibold">Tailwind CSS</div>
-            <div className="text-xs text-muted-foreground">Styling</div>
-          </div>
-          <div className="p-4">
-            <div className="text-3xl mb-2">🔷</div>
-            <div className="font-semibold">TypeScript</div>
-            <div className="text-xs text-muted-foreground">Type Safety</div>
-          </div>
-          <div className="p-4">
-            <div className="text-3xl mb-2">⚙️</div>
-            <div className="font-semibold">Go</div>
-            <div className="text-xs text-muted-foreground">Backend</div>
+      {/* Available Commands */}
+      <div className="grid md:grid-cols-2 gap-8 mb-8">
+        
+        {/* UI Components */}
+        <div>
+          <div className="text-xs font-bold text-muted-foreground mb-2">UI COMPONENTS</div>
+          <div className="space-y-0.5 text-xs font-mono">
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add ui button</span>
+              <span className="text-muted-foreground">Button component</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add ui card</span>
+              <span className="text-muted-foreground">Card layout</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add ui input</span>
+              <span className="text-muted-foreground">Form input</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add ui navbar</span>
+              <span className="text-muted-foreground">Navigation</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add ui theme-provider</span>
+              <span className="text-muted-foreground">Theme context</span>
+            </div>
           </div>
         </div>
+
+        {/* Backend Services */}
+        <div>
+          <div className="text-xs font-bold text-muted-foreground mb-2">BACKEND SERVICES</div>
+          <div className="space-y-0.5 text-xs font-mono">
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api postgres</span>
+              <span className="text-muted-foreground">PostgreSQL</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api redis</span>
+              <span className="text-muted-foreground">Redis cache</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api rabbitmq</span>
+              <span className="text-muted-foreground">Message queue</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api qast</span>
+              <span className="text-muted-foreground">RAG service</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api health</span>
+              <span className="text-muted-foreground">Health check</span>
+            </div>
+          </div>
+        </div>
+
+        {/* API Generation */}
+        <div>
+          <div className="text-xs font-bold text-muted-foreground mb-2">API GENERATION</div>
+          <div className="space-y-0.5 text-xs font-mono">
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api crud users</span>
+              <span className="text-muted-foreground">CRUD endpoints</span>
+            </div>
+            <div className="flex justify-between hover:bg-muted/50 px-2 py-1 rounded">
+              <span>wodge add api crud products</span>
+              <span className="text-muted-foreground">CRUD endpoints</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Project Info */}
+        <div>
+          <div className="text-xs font-bold text-muted-foreground mb-2">TECH STACK</div>
+          <div className="space-y-0.5 text-xs">
+            <div className="flex justify-between px-2 py-1">
+              <span className="text-muted-foreground">Frontend</span>
+              <span>React 18 + TypeScript</span>
+            </div>
+            <div className="flex justify-between px-2 py-1">
+              <span className="text-muted-foreground">Styling</span>
+              <span>Tailwind CSS</span>
+            </div>
+            <div className="flex justify-between px-2 py-1">
+              <span className="text-muted-foreground">Backend</span>
+              <span>Go + Vite</span>
+            </div>
+            <div className="flex justify-between px-2 py-1">
+              <span className="text-muted-foreground">Routing</span>
+              <span>React Router v6</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="pt-4 border-t border-border text-xs text-muted-foreground">
+        <div>Press <code className="text-foreground/80">Ctrl+C</code> in terminal to stop dev server</div>
       </div>
 
     </div>
