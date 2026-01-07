@@ -158,6 +158,8 @@ export const postgres = {
 
 	fmt.Println("Postgres client added to src/api/postgres.ts")
 	fmt.Println("Added POSTGRES_DSN to .env")
+	fmt.Println("\nTip: Run Postgres locally with Docker:")
+	fmt.Println("  docker run --name postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres")
 }
 
 func addHealthRoute(appRoot string) {
@@ -208,6 +210,8 @@ export const redis = {
 
 	fmt.Println("Redis client added to src/api/redis.ts")
 	fmt.Println("Added REDIS_ADDR and REDIS_PASSWORD to .env")
+	fmt.Println("\nTip: Run Redis locally with Docker:")
+	fmt.Println("  docker run --name redis -p 6379:6379 -d redis")
 }
 
 func addRabbitMQClient(appRoot string) {
@@ -228,6 +232,8 @@ export const rabbitmq = {
 
 	fmt.Println("RabbitMQ client added to src/api/rabbitmq.ts")
 	fmt.Println("Added RABBITMQ_URL to .env")
+	fmt.Println("\nTip: Run RabbitMQ locally with Docker:")
+	fmt.Println("  docker run --name rabbitmq -p 5672:5672 -p 15672:15672 -d rabbitmq:management")
 }
 
 func writeFiles(root string, files map[string]string) {
