@@ -69,6 +69,10 @@ func createApp(name string) {
 		"src/index.css":             templates.IndexCSS,
 		"src/routes.generated.tsx":  templates.RoutesGenerated,
 		"src/routes/home.route.tsx": templates.HomeRoute,
+
+		// Public assets
+		"public/logo.png":      templates.LogoPNG,
+		"public/logo_text.png": templates.LogoTextPNG,
 	}
 
 	for path, content := range files {
