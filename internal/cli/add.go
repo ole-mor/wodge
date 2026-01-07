@@ -154,7 +154,7 @@ export const postgres = {
 	writeFiles(appRoot, files)
 
 	// Inject default env var
-	updateEnvFile(appRoot, "POSTGRES_DSN", "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable")
+	updateEnvFile(appRoot, "POSTGRES_DSN", "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable")
 
 	fmt.Println("Postgres client added to src/api/postgres.ts")
 	fmt.Println("Added POSTGRES_DSN to .env")
@@ -205,7 +205,7 @@ export const redis = {
 	}
 	writeFiles(appRoot, files)
 
-	updateEnvFile(appRoot, "REDIS_ADDR", "localhost:6379")
+	updateEnvFile(appRoot, "REDIS_ADDR", "127.0.0.1:6379")
 	updateEnvFile(appRoot, "REDIS_PASSWORD", "")
 
 	fmt.Println("Redis client added to src/api/redis.ts")
@@ -228,7 +228,7 @@ export const rabbitmq = {
 	}
 	writeFiles(appRoot, files)
 
-	updateEnvFile(appRoot, "RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	updateEnvFile(appRoot, "RABBITMQ_URL", "amqp://guest:guest@127.0.0.1:5672/")
 
 	fmt.Println("RabbitMQ client added to src/api/rabbitmq.ts")
 	fmt.Println("Added RABBITMQ_URL to .env")
