@@ -23,6 +23,8 @@ If 'crud [name]' is specified, it creates a simple CRUD skeleton.
 If name is 'health', it adds a health check client.
 If name is 'postgres', 'redis', or 'rabbitmq', it adds a client library for that service.`,
 	Args: cobra.RangeArgs(1, 2),
+	Run:  runAddAPI,
+}
 
 func init() {
 	addCmd.AddCommand(addAPICmd)
