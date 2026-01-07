@@ -128,7 +128,7 @@ func addCRUDRoute(appRoot, apiName string) {
 func addPostgresClient(appRoot string) {
 	fmt.Println("Adding Postgres Client...")
 	files := map[string]string{
-		"src/lib/postgres.ts": `import { apiPost } from './wodge';
+		"src/api/postgres.ts": `import { apiPost } from '@/lib/wodge';
 
 export interface QueryResult<T = any> {
   [key: string]: any;
@@ -156,7 +156,7 @@ export const postgres = {
 	// Inject default env var
 	updateEnvFile(appRoot, "POSTGRES_DSN", "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable")
 
-	fmt.Println("Postgres client added to src/lib/postgres.ts")
+	fmt.Println("Postgres client added to src/api/postgres.ts")
 	fmt.Println("Added POSTGRES_DSN to .env")
 }
 
@@ -179,7 +179,7 @@ export const HealthService = {
 func addRedisClient(appRoot string) {
 	fmt.Println("Adding Redis Client...")
 	files := map[string]string{
-		"src/lib/redis.ts": `import { apiGet, apiPost, apiDelete } from './wodge';
+		"src/api/redis.ts": `import { apiGet, apiPost, apiDelete } from '@/lib/wodge';
 
 export const redis = {
   async get(key: string): Promise<string | null> {
@@ -206,14 +206,14 @@ export const redis = {
 	updateEnvFile(appRoot, "REDIS_ADDR", "localhost:6379")
 	updateEnvFile(appRoot, "REDIS_PASSWORD", "")
 
-	fmt.Println("Redis client added to src/lib/redis.ts")
+	fmt.Println("Redis client added to src/api/redis.ts")
 	fmt.Println("Added REDIS_ADDR and REDIS_PASSWORD to .env")
 }
 
 func addRabbitMQClient(appRoot string) {
 	fmt.Println("Adding RabbitMQ Client...")
 	files := map[string]string{
-		"src/lib/rabbitmq.ts": `import { apiPost } from './wodge';
+		"src/api/rabbitmq.ts": `import { apiPost } from '@/lib/wodge';
 
 export const rabbitmq = {
   async publish(topic: string, message: string): Promise<void> {
@@ -226,7 +226,7 @@ export const rabbitmq = {
 
 	updateEnvFile(appRoot, "RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
-	fmt.Println("RabbitMQ client added to src/lib/rabbitmq.ts")
+	fmt.Println("RabbitMQ client added to src/api/rabbitmq.ts")
 	fmt.Println("Added RABBITMQ_URL to .env")
 }
 
@@ -335,7 +335,7 @@ export async function POST(req: Request) {
 func generateCRUDApiRoute(name string) string {
 	// Generate a type-safe Service Object for the entity
 	// This fits the client-side nature of Wodge (Vite) better than Request/Response handlers
-	return fmt.Sprintf(`import { postgres } from '@/lib/postgres';
+	return fmt.Sprintf(`import { postgres } from '@/api/postgres';
 
 export const %sService = {
   async list() {
