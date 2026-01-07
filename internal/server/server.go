@@ -24,6 +24,10 @@ var (
 
 // Start starts the Wodge API server
 func Start(port int) {
+	// Print debug info about env vars
+	log.Printf("DEBUG: POSTGRES_DSN=%s", os.Getenv("POSTGRES_DSN"))
+	log.Printf("DEBUG: REDIS_ADDR=%s", os.Getenv("REDIS_ADDR"))
+
 	// Initialize Services
 	initServices()
 
