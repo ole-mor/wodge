@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"wodge/internal/services"
 
 	_ "github.com/lib/pq"
@@ -27,11 +28,16 @@ func NewPostgresDriver(dsn string) (*PostgresDriver, error) {
 var _ services.DatabaseService = (*PostgresDriver)(nil)
 
 func (p *PostgresDriver) Query(ctx context.Context, query string, args ...interface{}) ([]map[string]interface{}, error) {
+	if p == nil || p.db == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
 	rows, err := p.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
+	// ... rest of logic
 
 	columns, err := rows.Columns()
 	if err != nil {
@@ -70,6 +76,9 @@ func (p *PostgresDriver) Query(ctx context.Context, query string, args ...interf
 }
 
 func (p *PostgresDriver) Execute(ctx context.Context, query string, args ...interface{}) (int64, error) {
+	if p == nil || p.db == nil {
+		return 0, fmt.Errorf("database connection is nil")
+	}
 	result, err := p.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return 0, err

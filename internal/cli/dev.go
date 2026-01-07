@@ -166,10 +166,6 @@ func startBackend(appPath string, port int) *os.Process {
 }
 
 func loadEnv(appPath string) {
-	// Simple .env loader.
-	// NOTE: This does NOT overwrite existing env vars if they were set in the shell before running wodge.
-	// But os.Setenv generally overwrites. Here we want to respect the file,
-	// effectively applying the file's config to the process.
 	envFile := filepath.Join(appPath, ".env")
 	content, err := os.ReadFile(envFile)
 	if err == nil {
