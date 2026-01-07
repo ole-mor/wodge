@@ -8,7 +8,7 @@ func GetPackageJSON(appName string) string {
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wodge dev",
+    "dev": "wodge run",
     "build": "vite build && vite build --ssr src/entry-server.tsx --outDir dist/server",
     "lint": "eslint ."
   },

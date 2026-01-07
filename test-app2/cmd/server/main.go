@@ -5,7 +5,7 @@ import (
 	
 	"github.com/gin-gonic/gin"
 	
-	"test-app/internal/handlers"
+	"test-app2/internal/handlers"
 )
 
 func main() {

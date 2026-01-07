@@ -1,4 +1,4 @@
-module test-app
+module test-app2
 
 go 1.21
 

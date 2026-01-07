@@ -106,5 +106,5 @@ func createApp(name string) {
 
 	fmt.Printf("\nSuccess! Created %s\n", name)
 	fmt.Printf("cd %s\n", name)
-	fmt.Printf("wodge dev\n")
+	fmt.Printf("wodge run\n")
 }
