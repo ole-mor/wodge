@@ -157,6 +157,8 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { GeneratedRoutes } from './routes.generated';
 import { ThemeProvider } from '@/context/ThemeProvider';
 import { Navbar } from '@/components/ui/Navbar';
+import '@fontsource/assistant';
+import './index.css';
 import './App.css';
 
 function App() {
