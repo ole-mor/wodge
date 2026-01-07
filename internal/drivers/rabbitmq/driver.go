@@ -35,6 +35,9 @@ func NewRabbitMQDriver(url string) (*RabbitMQDriver, error) {
 var _ services.QueueService = (*RabbitMQDriver)(nil)
 
 func (r *RabbitMQDriver) Publish(ctx context.Context, topic string, message []byte) error {
+	if r == nil || r.channel == nil {
+		return fmt.Errorf("rabbitmq channel is nil")
+	}
 	// Declare queue to ensure it exists
 	_, err := r.channel.QueueDeclare(
 		topic, // name
@@ -61,6 +64,9 @@ func (r *RabbitMQDriver) Publish(ctx context.Context, topic string, message []by
 }
 
 func (r *RabbitMQDriver) Subscribe(ctx context.Context, topic string, handler func(message []byte) error) error {
+	if r == nil || r.channel == nil {
+		return fmt.Errorf("rabbitmq channel is nil")
+	}
 	_, err := r.channel.QueueDeclare(
 		topic,
 		true,
