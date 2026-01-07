@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -91,6 +92,7 @@ func Start(port int) {
 		// QAST Routes
 		api.POST("/qast/ask", handleQastAsk)
 		api.POST("/qast/ingest", handleQastIngest)
+		api.POST("/qast/ingest/async", handleQastIngestAsync)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -320,4 +322,35 @@ func handleQastIngest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "result": result})
+}
+
+// POST /api/qast/ingest/async { "text": "..." }
+func handleQastIngestAsync(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	var req struct {
+		Text   string `json:"text"`
+		UserID string `json:"user_id"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Run in background
+	go func() {
+		// Create a background context since request context will be cancelled
+		ctx := context.Background()
+		log.Printf("Starting async ingest for user %s...", req.UserID)
+		_, err := qastSvc.IngestGraph(ctx, req.Text, req.UserID)
+		if err != nil {
+			log.Printf("Async ingest failed: %v", err)
+		} else {
+			log.Printf("Async ingest completed for user %s", req.UserID)
+		}
+	}()
+
+	c.JSON(http.StatusAccepted, gin.H{"status": "accepted", "message": "Ingestion started in background"})
 }

@@ -250,6 +250,10 @@ export const qast = {
 
   async ingest(text: string, userId: string = "default-user"): Promise<{ status: string; result: any }> {
     return apiPost('/qast/ingest', { text, user_id: userId });
+  },
+
+  async ingestAsync(text: string, userId: string = "default-user"): Promise<{ status: string; message: string }> {
+    return apiPost('/qast/ingest/async', { text, user_id: userId });
   }
 };
 `,
