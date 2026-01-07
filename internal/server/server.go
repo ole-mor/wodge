@@ -105,9 +105,10 @@ func initServices() {
 		var err error
 		db, err = postgres.NewPostgresDriver(dsn)
 		if err != nil {
-			log.Printf("Failed to init Postgres: %v", err)
+			log.Printf("ERROR: Failed to init Postgres: %v", err)
+			db = nil // Ensure strictly nil
 		} else {
-			log.Println("Postgres connected")
+			log.Println("Postgres connected successfully")
 		}
 	} else {
 		log.Println("POSTGRES_DSN is empty, skipping Postgres init")
@@ -120,9 +121,10 @@ func initServices() {
 		var err error
 		cache, err = redis.NewRedisDriver(redisAddr, pass, 0)
 		if err != nil {
-			log.Printf("Failed to init Redis: %v", err)
+			log.Printf("ERROR: Failed to init Redis: %v", err)
+			cache = nil
 		} else {
-			log.Println("Redis connected")
+			log.Println("Redis connected successfully")
 		}
 	} else {
 		log.Println("REDIS_ADDR is empty, skipping Redis init")
@@ -134,9 +136,10 @@ func initServices() {
 		var err error
 		queue, err = rabbitmq.NewRabbitMQDriver(amqpUrl)
 		if err != nil {
-			log.Printf("Failed to init RabbitMQ: %v", err)
+			log.Printf("ERROR: Failed to init RabbitMQ: %v", err)
+			queue = nil
 		} else {
-			log.Println("RabbitMQ connected")
+			log.Println("RabbitMQ connected successfully")
 		}
 	}
 }
