@@ -120,3 +120,40 @@ func isProcessRunning(pid int) bool {
 	err = process.Signal(syscall.Signal(0)) // syscall.Signal(0) is portable enough usually
 	return err == nil
 }
+
+func GetFreePort(startPort int) int {
+	port := startPort
+	for {
+		if !isPortInUse(port) {
+			return port
+		}
+		port++
+		if port > 65535 {
+			return 0 // No free ports?!
+		}
+	}
+}
+
+func isPortInUse(port int) bool {
+	// Simple check by trying to listen
+	// NOT perfect due to race conditions but good enough for dev
+	addr := syscall.SockaddrInet4{Port: port}
+	copy(addr.Addr[:], []byte{0, 0, 0, 0}) // 0.0.0.0
+
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		return true // Assume used if error
+	}
+	defer syscall.Close(fd)
+
+	// Set SO_REUSEADDR so we don't get stuck waiting
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		return true
+	}
+
+	if err := syscall.Bind(fd, &addr); err != nil {
+		return true // Port is used
+	}
+
+	return false
+}

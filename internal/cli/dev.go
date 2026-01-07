@@ -41,12 +41,23 @@ func runDev(cmd *cobra.Command, args []string) {
 	// 0. Register App
 	cwd, _ := os.Getwd()
 	appName := filepath.Base(cwd)
+
+	// Pick a free port
+	port := registry.GetFreePort(8080)
+
+	// Write port to wodge client file so frontend knows where to look
+	// This is a bit hacky but frontend needs to know.
+	// Actually, better: we just pass it to Vite via env var or modify wodge.ts
+	// Or even better: wodge dev updates .env (transiently) or vite config?
+	// Easiest: Update .env with PORT=...
+	updateEnvPort(cwd, port)
+
 	reg, err := registry.Load()
 	if err == nil {
-		if err := reg.Register(appName, 8080, cwd); err != nil {
+		if err := reg.Register(appName, port, cwd); err != nil {
 			fmt.Printf("Warning: Failed to register app: %v\n", err)
 		} else {
-			fmt.Printf("Registered app '%s' in Wodge registry\n", appName)
+			fmt.Printf("Registered app '%s' on port %d\n", appName, port)
 			defer func() {
 				reg.Unregister(appName)
 				fmt.Printf("Unregistered app '%s'\n", appName)
@@ -126,8 +137,8 @@ func runDev(cmd *cobra.Command, args []string) {
 	}
 
 	// 3. Start Go API Server
-	fmt.Println("Starting API server...")
-	startBackend(cwd, 8080) // Call the new startBackend function
+	fmt.Printf("Starting API server on port %d...\n", port)
+	startBackend(cwd, port) // Call the new startBackend function
 
 	// 4. Start Vite
 	// We assume we are in the project root, so we check for node_modules/.bin/vite
@@ -170,4 +181,58 @@ func loadEnv(appPath string) {
 			}
 		}
 	}
+}
+
+func updateEnvPort(appPath string, port int) {
+	envFile := filepath.Join(appPath, ".env")
+	content, err := os.ReadFile(envFile)
+	var lines []string
+
+	if err == nil {
+		lines = strings.Split(string(content), "\n")
+	}
+
+	found := false
+	newLines := []string{}
+	for _, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "PORT=") {
+			newLines = append(newLines, fmt.Sprintf("PORT=%d", port))
+			found = true
+		} else {
+			newLines = append(newLines, line)
+		}
+	}
+
+	if !found {
+		newLines = append(newLines, fmt.Sprintf("PORT=%d", port))
+	}
+
+	// Write back
+	finalContent := strings.Join(newLines, "\n")
+	// Ensure newline at end
+	if finalContent != "" && !strings.HasSuffix(finalContent, "\n") {
+		finalContent += "\n"
+	}
+	os.WriteFile(envFile, []byte(finalContent), 0644)
+
+	// Also need to update src/lib/wodge.ts because it hardcodes localhost:8080!
+	updateWodgeClient(appPath, port)
+}
+
+func updateWodgeClient(appPath string, port int) {
+	clientPath := filepath.Join(appPath, "src", "lib", "wodge.ts")
+	content, err := os.ReadFile(clientPath)
+	if err != nil {
+		return
+	}
+
+	strContent := string(content)
+	lines := strings.Split(strContent, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "const API_BASE =") {
+			lines[i] = fmt.Sprintf("const API_BASE = 'http://localhost:%d/api';", port)
+			break
+		}
+	}
+	os.WriteFile(clientPath, []byte(strings.Join(lines, "\n")), 0644)
 }
