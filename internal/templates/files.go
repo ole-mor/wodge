@@ -125,42 +125,45 @@ const IndexHTML = `<!doctype html>
 
 const EntryClient = `import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 
 ReactDOM.hydrateRoot(
   document.getElementById('root')!,
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );`
 
 const EntryServer = `import React from 'react';
 import ReactDOMServer from 'react-dom/server';
+import { StaticRouter } from 'react-router-dom/server';
 import App from './App';
 
 export function render(url: string) {
   return ReactDOMServer.renderToString(
     <React.StrictMode>
-      <App />
+      <StaticRouter location={url}>
+        <App />
+      </StaticRouter>
     </React.StrictMode>
   );
 }`
 
 const AppTSX = `import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
 import { GeneratedRoutes } from './routes.generated';
 import '@fontsource/assistant';
 import './index.css';
 
 function App() {
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-background font-sans text-foreground">
-        <main className="container mx-auto p-8">
-          <GeneratedRoutes />
-        </main>
-      </div>
-    </BrowserRouter>
+    <div className="min-h-screen bg-background font-sans text-foreground">
+      <main className="container mx-auto p-8">
+        <GeneratedRoutes />
+      </main>
+    </div>
   );
 }
 
