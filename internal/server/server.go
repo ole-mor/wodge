@@ -1,6 +1,7 @@
-package main
+package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -21,7 +22,8 @@ var (
 	queue services.QueueService
 )
 
-func main() {
+// Start starts the Wodge API server
+func Start(port int) {
 	// Initialize Services
 	initServices()
 
@@ -47,7 +49,7 @@ func main() {
 
 	// Register API endpoints
 	r.GET("/api/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "wow"})
+		c.JSON(200, gin.H{"status": "ok"})
 	})
 
 	// Monitor Event Stream
@@ -70,9 +72,13 @@ func main() {
 		api.POST("/queue/publish", handleQueuePublish)
 	}
 
-	log.Println("Starting API server on :8080")
+	log.Printf("Starting Wodge API server on :%d\n", port)
 	log.Println("Frontend will access APIs via: http://localhost:5173/api")
-	if err := r.Run(":8080"); err != nil {
+
+	// Format address
+	addr := fmt.Sprintf(":%d", port)
+
+	if err := r.Run(addr); err != nil {
 		log.Fatal(err)
 	}
 }

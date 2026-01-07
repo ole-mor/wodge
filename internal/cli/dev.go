@@ -6,35 +6,16 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"wodge/internal/generator"
 	"wodge/internal/registry"
+	"wodge/internal/server"
 
+	// Added import
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 )
-
-func findWodgeRoot() (string, error) {
-	// Start from current directory and walk up looking for cmd/api-server/main.go
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("could not get current directory: %v", err)
-	}
-
-	for {
-		apiServerPath := filepath.Join(currentDir, "cmd", "api-server", "main.go")
-		if _, err := os.Stat(apiServerPath); !os.IsNotExist(err) {
-			return currentDir, nil
-		}
-
-		parent := filepath.Dir(currentDir)
-		if parent == currentDir {
-			// Reached root directory
-			return "", fmt.Errorf("could not find Wodge root (no cmd/api-server/main.go found)")
-		}
-		currentDir = parent
-	}
-}
 
 var devCmd = &cobra.Command{
 	Use:    "dev [app_name]",
@@ -145,23 +126,8 @@ func runDev(cmd *cobra.Command, args []string) {
 	}
 
 	// 3. Start Go API Server
-	go func() {
-		fmt.Println("Starting API server...")
-		// Find the wodge root by looking for cmd/api-server/main.go
-		wodgeRoot, err := findWodgeRoot()
-		if err != nil {
-			fmt.Printf("Warning: Could not find Wodge root, skipping API server: %v\n", err)
-			return
-		}
-
-		apiCmd := exec.Command("go", "run", "cmd/api-server/main.go")
-		apiCmd.Dir = wodgeRoot
-		apiCmd.Stdout = os.Stdout
-		apiCmd.Stderr = os.Stderr
-		if err := apiCmd.Run(); err != nil {
-			fmt.Printf("API server error: %v\n", err)
-		}
-	}()
+	fmt.Println("Starting API server...")
+	startBackend(cwd, 8080) // Call the new startBackend function
 
 	// 4. Start Vite
 	// We assume we are in the project root, so we check for node_modules/.bin/vite
@@ -175,5 +141,34 @@ func runDev(cmd *cobra.Command, args []string) {
 	if err := viteCmd.Run(); err != nil {
 		fmt.Printf("Error running vite: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func startBackend(appPath string, port int) *os.Process {
+	// Load environment variables from app's .env
+	loadEnv(appPath)
+
+	go func() {
+		server.Start(port)
+	}()
+
+	return nil
+}
+
+func loadEnv(appPath string) {
+	envFile := filepath.Join(appPath, ".env")
+	content, err := os.ReadFile(envFile)
+	if err == nil {
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				val := strings.TrimSpace(parts[1])
+				// Expand value? For now raw
+				val = strings.Trim(val, `"'`)
+				os.Setenv(key, val)
+			}
+		}
 	}
 }

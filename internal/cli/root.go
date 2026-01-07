@@ -53,22 +53,19 @@ func createApp(name string) {
 	}
 
 	files := map[string]string{
-		".gitignore":                  templates.GitIgnore,
-		".env":                        templates.EnvFile,
-		"package.json":                templates.GetPackageJSON(name),
-		"vite.config.ts":              templates.ViteConfig,
-		"tsconfig.json":               templates.TsConfig,
-		"tsconfig.node.json":          templates.TsConfigNode,
-		"index.html":                  templates.IndexHTML,
-		"src/lib/wodge.ts":            templates.WodgeClientTS,
-		"src/entry-client.tsx":        templates.EntryClient,
-		"src/entry-server.tsx":        templates.EntryServer,
-		"src/App.tsx":                 templates.AppTSX,
-		"src/routes.generated.tsx":    templates.RoutesGenerated,
-		"src/routes/home.route.tsx":   templates.HomeRoute,
-		"go.mod":                      templates.GetGoMod(name),
-		"cmd/server/main.go":          fmt.Sprintf(templates.BackendMain, name),
-		"internal/handlers/routes.go": templates.BackendHandlers,
+		".gitignore":                templates.GitIgnore,
+		".env":                      templates.EnvFile,
+		"package.json":              templates.GetPackageJSON(name),
+		"vite.config.ts":            templates.ViteConfig,
+		"tsconfig.json":             templates.TsConfig,
+		"tsconfig.node.json":        templates.TsConfigNode,
+		"index.html":                templates.IndexHTML,
+		"src/lib/wodge.ts":          templates.WodgeClientTS,
+		"src/entry-client.tsx":      templates.EntryClient,
+		"src/entry-server.tsx":      templates.EntryServer,
+		"src/App.tsx":               templates.AppTSX,
+		"src/routes.generated.tsx":  templates.RoutesGenerated,
+		"src/routes/home.route.tsx": templates.HomeRoute,
 	}
 
 	for path, content := range files {
@@ -93,15 +90,6 @@ func createApp(name string) {
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("Error installing dependencies: %v\n", err)
 		return
-	}
-
-	fmt.Printf("\nInitializing Go module...\n")
-	goCmd := exec.Command("go", "mod", "tidy")
-	goCmd.Dir = name
-	goCmd.Stdout = os.Stdout
-	goCmd.Stderr = os.Stderr
-	if err := goCmd.Run(); err != nil {
-		fmt.Printf("Error tidying go module: %v\n", err)
 	}
 
 	fmt.Printf("\nSuccess! Created %s\n", name)
