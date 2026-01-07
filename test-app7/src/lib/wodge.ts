@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8080/api';
+const API_BASE = 'http://localhost:8081/api';
 
 export async function apiGet<T = any>(path: string): Promise<T> {
   const res = await fetch(API_BASE + path, {

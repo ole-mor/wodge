@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 	"wodge/internal/monitor"
 	"wodge/internal/registry"
@@ -29,10 +30,54 @@ var monitorCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Handle 'monitor list' subcommand
-		if len(args) > 0 && args[0] == "list" {
-			listApps(reg)
-			return
+		// Handle subcommands
+		if len(args) > 0 {
+			command := args[0]
+
+			if command == "list" {
+				listApps(reg)
+				return
+			}
+
+			if len(args) == 2 {
+				appName := args[1]
+				app, exists := reg.Apps[appName]
+				if !exists {
+					fmt.Printf("App '%s' not found.\n", appName)
+					os.Exit(1)
+				}
+
+				if command == "stop" {
+					if app.Status != "running" {
+						fmt.Printf("App '%s' is already stopped.\n", appName)
+						return
+					}
+					stopApp(app)
+					return
+				}
+
+				if command == "remove" {
+					// Stop if running
+					if app.Status == "running" {
+						stopApp(app)
+					}
+					reg.Remove(appName)
+					fmt.Printf("App '%s' removed from registry.\n", appName)
+					return
+				}
+
+				// For Start/Restart, we need more logic to execute commands
+				// This is tricky as we need to spawn separate processes
+				if command == "start" {
+					if app.Status == "running" {
+						fmt.Printf("App '%s' is already running.\n", appName)
+						return
+					}
+					// TODO: Implement start logic (spawn wodge run in detached mode)
+					fmt.Println("Start command not yet fully implemented. Please run 'wodge run' in the app directory.")
+					return
+				}
+			}
 		}
 
 		var targetApp registry.WodgeApp
@@ -77,11 +122,24 @@ var monitorCmd = &cobra.Command{
 }
 
 func listApps(reg *registry.Registry) {
-	fmt.Println("\nRunning Wodge Apps:")
-	fmt.Printf("%-20s %-10s %-10s %s\n", "NAME", "PORT", "PID", "PATH")
-	fmt.Println(strings.Repeat("-", 60))
+	fmt.Println("\nWodge Apps Registry:")
+	fmt.Printf("%-20s %-10s %-10s %-10s %s\n", "NAME", "STATUS", "PORT", "PID", "PATH")
+	fmt.Println(strings.Repeat("-", 80))
 	for _, app := range reg.Apps {
-		fmt.Printf("%-20s %-10d %-10d %s\n", app.Name, app.Port, app.PID, app.Path)
+		status := app.Status
+		if status == "" {
+			status = "running" // Backwards compat
+		}
+
+		portStr := fmt.Sprintf("%d", app.Port)
+		pidStr := fmt.Sprintf("%d", app.PID)
+
+		if status != "running" {
+			portStr = "-"
+			pidStr = "-"
+		}
+
+		fmt.Printf("%-20s %-10s %-10s %-10s %s\n", app.Name, status, portStr, pidStr, app.Path)
 	}
 	fmt.Println()
 }
@@ -257,5 +315,20 @@ func startEventStream() {
 				eventChan <- evt
 			}
 		}
+	}
+}
+
+func stopApp(app registry.WodgeApp) {
+	fmt.Printf("Stopping %s (PID %d)...\n", app.Name, app.PID)
+	proc, err := os.FindProcess(app.PID)
+	if err == nil {
+		err = proc.Signal(syscall.SIGINT) // SIGINT allows graceful shutdown we implemented
+		if err != nil {
+			fmt.Printf("Error stopping process: %v\n", err)
+		} else {
+			fmt.Println("Stop signal sent.")
+		}
+	} else {
+		fmt.Printf("Could not find process: %v\n", err)
 	}
 }

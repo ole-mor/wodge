@@ -14,6 +14,7 @@ type WodgeApp struct {
 	Path      string    `json:"path"`
 	Port      int       `json:"port"`
 	PID       int       `json:"pid"`
+	Status    string    `json:"status"` // "running", "stopped"
 	StartTime time.Time `json:"start_time"`
 }
 
@@ -65,9 +66,14 @@ func (r *Registry) Save() error {
 	}
 
 	// Clean up stale PIDs before saving
+	// Clean up stale PIDs (only remove if they were supposed to be running but aren't)
 	for name, app := range r.Apps {
-		if !isProcessRunning(app.PID) {
-			delete(r.Apps, name)
+		if app.Status == "running" && !isProcessRunning(app.PID) {
+			// Instead of deleting, mark as stopped
+			app.Status = "stopped"
+			app.PID = 0
+			// app.Port = 0 // Keep port or clear? Clearing is safer as port might be taken
+			r.Apps[name] = app
 		}
 	}
 
@@ -93,12 +99,32 @@ func (r *Registry) Register(name string, port int, projectPath string) error {
 		Path:      projectPath,
 		Port:      port, // Go backend port
 		PID:       os.Getpid(),
+		Status:    "running",
 		StartTime: time.Now(),
 	}
 	return r.Save()
 }
 
 func (r *Registry) Unregister(name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, err := Load()
+	if err == nil {
+		r.Apps = current.Apps
+	}
+
+	// Instead of deleting, mark as stopped
+	if app, ok := r.Apps[name]; ok {
+		app.Status = "stopped"
+		app.PID = 0
+		r.Apps[name] = app
+	}
+	return r.Save()
+}
+
+// Remove completely deletes an app from registry
+func (r *Registry) Remove(name string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
