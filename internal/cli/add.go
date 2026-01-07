@@ -233,7 +233,7 @@ export const rabbitmq = {
 	fmt.Println("RabbitMQ client added to src/api/rabbitmq.ts")
 	fmt.Println("Added RABBITMQ_URL to .env")
 	fmt.Println("\nTip: Run RabbitMQ locally with Docker:")
-	fmt.Println("  docker run --name rabbitmq -p 5672:5672 -p 15672:15672 -d rabbitmq:management")
+	fmt.Println("  docker run --name rabbitmq -p 5672:5672 -d rabbitmq")
 }
 
 func writeFiles(root string, files map[string]string) {
