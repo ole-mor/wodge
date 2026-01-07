@@ -153,25 +153,20 @@ export function render(url: string) {
 }`
 
 const AppTSX = `import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { GeneratedRoutes } from './routes.generated';
-import { ThemeProvider } from '@/context/ThemeProvider';
-import { Navbar } from '@/components/ui/Navbar';
 import '@fontsource/assistant';
 import './index.css';
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <BrowserRouter>
-        <div className="min-h-screen bg-background font-sans text-foreground">
-          <Navbar />
-          <main className="container mx-auto p-8">
-            <GeneratedRoutes />
-          </main>
-        </div>
-      </BrowserRouter>
-    </ThemeProvider>
+    <BrowserRouter>
+      <div className="min-h-screen bg-background font-sans text-foreground">
+        <main className="container mx-auto p-8">
+          <GeneratedRoutes />
+        </main>
+      </div>
+    </BrowserRouter>
   );
 }
 
@@ -192,8 +187,6 @@ export function GeneratedRoutes() {
 `
 
 const HomeRoute = `import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 
 export default function Home() {
   return (
@@ -207,34 +200,17 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Getting Started</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="leading-7 [&:not(:first-child)]:mt-6">
-              Edit <code>src/routes/home.route.tsx</code> to see changes instantly.
-            </p>
-            <div className="mt-4">
-              <Button onClick={() => alert('Components work!')}>Click Me</Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Features</CardTitle>
-          </CardHeader>
-          <CardContent>
-             <ul className="list-disc pl-6 space-y-2">
-               <li>Tailwind CSS Styling</li>
-               <li>Framer Motion Animations</li>
-               <li>Material UI Icons</li>
-               <li>Theme Switching (Dark/Light)</li>
-             </ul>
-          </CardContent>
-        </Card>
+      <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold mb-4">Getting Started</h2>
+        <p className="mb-4">
+          Edit <code className="bg-muted px-2 py-1 rounded">src/routes/home.route.tsx</code> to see changes instantly.
+        </p>
+        <p className="mb-4">
+          Add UI components on-demand using:
+        </p>
+        <pre className="bg-muted p-4 rounded overflow-x-auto">
+          <code>wodge add ui button</code>
+        </pre>
       </div>
     </div>
   );

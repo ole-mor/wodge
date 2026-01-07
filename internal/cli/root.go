@@ -69,15 +69,6 @@ func createApp(name string) {
 		"src/index.css":             templates.IndexCSS,
 		"src/routes.generated.tsx":  templates.RoutesGenerated,
 		"src/routes/home.route.tsx": templates.HomeRoute,
-
-		// Components
-		"src/components/ui/Button.tsx": templates.ComponentButton,
-		"src/components/ui/Card.tsx":   templates.ComponentCard,
-		"src/components/ui/Input.tsx":  templates.ComponentInput,
-		"src/components/ui/Navbar.tsx": templates.ComponentNavbar,
-
-		// Context
-		"src/context/ThemeProvider.tsx": templates.ThemeProvider,
 	}
 
 	for path, content := range files {

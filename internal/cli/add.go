@@ -26,8 +26,17 @@ If name is 'postgres', 'redis', or 'rabbitmq', it adds a client library for that
 	Run:  runAddAPI,
 }
 
+var uiCmd = &cobra.Command{
+	Use:   "ui [name]",
+	Short: "Add a new UI component or page to the app",
+	Long:  `Adds a new UI component or page.`,
+	Args:  cobra.ExactArgs(1),
+	Run:   runAddUI,
+}
+
 func init() {
 	addCmd.AddCommand(addAPICmd)
+	addCmd.AddCommand(uiCmd)
 }
 
 func runAddAPI(cmd *cobra.Command, args []string) {
