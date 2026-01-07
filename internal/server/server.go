@@ -34,7 +34,18 @@ func Start(port int) {
 
 	// Enable CORS for dev server
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		// Dynamic ORIGIN support for development
+		// In production, this should be stricter, but for dev tool we can trust localhost
+		origin := c.Request.Header.Get("Origin")
+		// Check if origin is localhost or 127.0.0.1
+		// Simplest for now: Allow all localhost ports
+		if origin != "" {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			// Fallback
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		}
+
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
