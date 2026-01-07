@@ -53,6 +53,8 @@ func createApp(name string) {
 	}
 
 	files := map[string]string{
+		".gitignore":                  templates.GitIgnore,
+		".env":                        templates.EnvFile,
 		"package.json":                templates.GetPackageJSON(name),
 		"vite.config.ts":              templates.ViteConfig,
 		"tsconfig.json":               templates.TsConfig,

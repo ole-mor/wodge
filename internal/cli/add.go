@@ -152,8 +152,12 @@ export const postgres = {
 `,
 	}
 	writeFiles(appRoot, files)
+
+	// Inject default env var
+	updateEnvFile(appRoot, "POSTGRES_DSN", "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable")
+
 	fmt.Println("Postgres client added to src/lib/postgres.ts")
-	fmt.Println("Make sure POSTGRES_DSN is set in your environment variables.")
+	fmt.Println("Added POSTGRES_DSN to .env")
 }
 
 func addHealthRoute(appRoot string) {
@@ -198,8 +202,12 @@ export const redis = {
 `,
 	}
 	writeFiles(appRoot, files)
+
+	updateEnvFile(appRoot, "REDIS_ADDR", "localhost:6379")
+	updateEnvFile(appRoot, "REDIS_PASSWORD", "")
+
 	fmt.Println("Redis client added to src/lib/redis.ts")
-	fmt.Println("Make sure REDIS_ADDR (and optionally REDIS_PASSWORD) is set.")
+	fmt.Println("Added REDIS_ADDR and REDIS_PASSWORD to .env")
 }
 
 func addRabbitMQClient(appRoot string) {
@@ -215,8 +223,11 @@ export const rabbitmq = {
 `,
 	}
 	writeFiles(appRoot, files)
+
+	updateEnvFile(appRoot, "RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+
 	fmt.Println("RabbitMQ client added to src/lib/rabbitmq.ts")
-	fmt.Println("Make sure RABBITMQ_URL is set.")
+	fmt.Println("Added RABBITMQ_URL to .env")
 }
 
 func writeFiles(root string, files map[string]string) {
@@ -228,6 +239,39 @@ func writeFiles(root string, files map[string]string) {
 			fmt.Printf("Error writing %s: %v\n", path, err)
 		}
 	}
+}
+
+func updateEnvFile(root, key, value string) {
+	envPath := filepath.Join(root, ".env")
+
+	// Create if not exists
+	if _, err := os.Stat(envPath); os.IsNotExist(err) {
+		os.WriteFile(envPath, []byte(""), 0644)
+	}
+
+	contentBytes, err := os.ReadFile(envPath)
+	if err != nil {
+		fmt.Printf("Warning: could not read .env file: %v\n", err)
+		return
+	}
+	content := string(contentBytes)
+
+	if strings.Contains(content, key+"=") {
+		fmt.Printf("Note: %s already exists in .env, skipping.\n", key)
+		return
+	}
+
+	f, err := os.OpenFile(envPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("Warning: could not open .env file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	if len(content) > 0 && !strings.HasSuffix(content, "\n") {
+		f.WriteString("\n")
+	}
+	f.WriteString(fmt.Sprintf("%s=%s\n", key, value))
 }
 
 func findAppRoot() (string, error) {
