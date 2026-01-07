@@ -125,29 +125,23 @@ const IndexHTML = `<!doctype html>
 
 const EntryClient = `import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 
 ReactDOM.hydrateRoot(
   document.getElementById('root')!,
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <App />
   </React.StrictMode>
 );`
 
 const EntryServer = `import React from 'react';
 import ReactDOMServer from 'react-dom/server';
-import { StaticRouter } from 'react-router-dom/server';
 import App from './App';
 
 export function render(url: string) {
   return ReactDOMServer.renderToString(
     <React.StrictMode>
-      <StaticRouter location={url}>
-        <App />
-      </StaticRouter>
+      <App />
     </React.StrictMode>
   );
 }`
