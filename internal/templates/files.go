@@ -106,7 +106,7 @@ const TsConfigNode = `{
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "tailwind.config.ts"]
 }`
 
 const IndexHTML = `<!doctype html>
