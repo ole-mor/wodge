@@ -63,6 +63,8 @@ func runAddAPI(cmd *cobra.Command, args []string) {
 		addRedisClient(appRoot)
 	case "rabbitmq":
 		addRabbitMQClient(appRoot)
+	case "qast":
+		addQastClient(appRoot)
 	case "health":
 		addHealthRoute(appRoot)
 	default:
@@ -234,6 +236,28 @@ export const rabbitmq = {
 	fmt.Println("Added RABBITMQ_URL to .env")
 	fmt.Println("\nTip: Run RabbitMQ locally with Docker:")
 	fmt.Println("  docker run --name rabbitmq -p 5672:5672 -d rabbitmq")
+}
+
+func addQastClient(appRoot string) {
+	fmt.Println("Adding QAST Client...")
+	files := map[string]string{
+		"src/api/qast.ts": `import { apiPost } from '@/lib/wodge';
+
+export const qast = {
+  async ask(query: string, userId: string = "default-user", expertise: string = "novice"): Promise<{ answer: string; context: string[] }> {
+    return apiPost('/qast/ask', { query, user_id: userId, expertise_level: expertise });
+  }
+};
+`,
+	}
+	writeFiles(appRoot, files)
+
+	// Default QAST URL
+	updateEnvFile(appRoot, "QAST_URL", "http://localhost:8080")
+
+	fmt.Println("QAST client added to src/api/qast.ts")
+	fmt.Println("Added QAST_URL to .env")
+	fmt.Println("Make sure your QAST service is running!")
 }
 
 func writeFiles(root string, files map[string]string) {

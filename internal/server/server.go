@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"wodge/internal/drivers/postgres"
+	"wodge/internal/drivers/qast"
 	"wodge/internal/drivers/rabbitmq"
 	"wodge/internal/drivers/redis"
 	"wodge/internal/middleware"
@@ -17,9 +18,10 @@ import (
 
 // Global services
 var (
-	db    services.DatabaseService
-	cache services.CacheService
-	queue services.QueueService
+	db      services.DatabaseService
+	cache   services.CacheService
+	queue   services.QueueService
+	qastSvc services.QastService
 )
 
 // Start starts the Wodge API server
@@ -85,6 +87,9 @@ func Start(port int) {
 		// RabbitMQ Routes
 		// Note: Subscribe is streaming/push, simpler to just allow Publish via HTTP for now
 		api.POST("/queue/publish", handleQueuePublish)
+
+		// QAST Routes
+		api.POST("/qast/ask", handleQastAsk)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -141,6 +146,15 @@ func initServices() {
 		} else {
 			log.Println("RabbitMQ connected successfully")
 		}
+	}
+
+	// QAST
+	qastURL := os.Getenv("QAST_URL")
+	if qastURL != "" {
+		qastSvc = qast.NewQastDriver(qastURL)
+		log.Println("QAST driver initialized")
+	} else {
+		log.Println("QAST_URL is empty, skipping QAST init")
 	}
 }
 
@@ -260,4 +274,27 @@ func handleQueuePublish(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// POST /api/qast/ask { "query": "..." }
+func handleQastAsk(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	var req struct {
+		Query          string `json:"query"`
+		UserID         string `json:"user_id"`
+		ExpertiseLevel string `json:"expertise_level"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	answer, context, err := qastSvc.Ask(c.Request.Context(), req.Query, req.UserID, req.ExpertiseLevel)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"answer": answer, "context": context})
 }

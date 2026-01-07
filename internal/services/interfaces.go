@@ -21,3 +21,8 @@ type QueueService interface {
 	Publish(ctx context.Context, topic string, message []byte) error
 	Subscribe(ctx context.Context, topic string, handler func(message []byte) error) error
 }
+
+// QastService defines the interface for interacting with the QAST API
+type QastService interface {
+	Ask(ctx context.Context, query, userId, expertise string) (string, []string, error)
+}
