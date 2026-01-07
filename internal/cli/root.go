@@ -58,14 +58,27 @@ func createApp(name string) {
 		"package.json":              templates.GetPackageJSON(name),
 		"vite.config.ts":            templates.ViteConfig,
 		"tsconfig.json":             templates.TsConfig,
+		"tailwind.config.ts":        templates.TailwindConfig,
+		"postcss.config.js":         templates.PostCSSConfig,
 		"tsconfig.node.json":        templates.TsConfigNode,
 		"index.html":                templates.IndexHTML,
 		"src/lib/wodge.ts":          templates.WodgeClientTS,
 		"src/entry-client.tsx":      templates.EntryClient,
 		"src/entry-server.tsx":      templates.EntryServer,
 		"src/App.tsx":               templates.AppTSX,
+		"src/App.css":               templates.AppCSS,
+		"src/index.css":             templates.IndexCSS,
 		"src/routes.generated.tsx":  templates.RoutesGenerated,
 		"src/routes/home.route.tsx": templates.HomeRoute,
+
+		// Components
+		"src/components/ui/Button.tsx": templates.ComponentButton,
+		"src/components/ui/Card.tsx":   templates.ComponentCard,
+		"src/components/ui/Input.tsx":  templates.ComponentInput,
+		"src/components/ui/Navbar.tsx": templates.ComponentNavbar,
+
+		// Context
+		"src/context/ThemeProvider.tsx": templates.ThemeProvider,
 	}
 
 	for path, content := range files {

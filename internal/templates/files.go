@@ -15,7 +15,15 @@ func GetPackageJSON(appName string) string {
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.23.0"
+    "react-router-dom": "^6.23.0",
+    "framer-motion": "^11.0.0",
+    "@mui/material": "^5.15.0",
+    "@mui/icons-material": "^5.15.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "@fontsource/assistant": "^5.0.0",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -28,7 +36,10 @@ func GetPackageJSON(appName string) string {
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
     "typescript": "^5.2.2",
-    "vite": "^5.3.1"
+    "vite": "^5.3.1",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
   }
 }`, appName)
 }
@@ -142,12 +153,29 @@ export function render(url: string) {
 }`
 
 const AppTSX = `import React from 'react';
-import { useRoutes } from 'react-router-dom';
-import { routes } from './routes.generated';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { GeneratedRoutes } from './routes.generated';
+import { ThemeProvider } from '@/context/ThemeProvider';
+import { Navbar } from '@/components/ui/Navbar';
+import './App.css';
 
-export default function App() {
-  return useRoutes(routes);
-}`
+function App() {
+  return (
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <BrowserRouter>
+        <div className="min-h-screen bg-background font-sans text-foreground">
+          <Navbar />
+          <main className="container mx-auto p-8">
+            <GeneratedRoutes />
+          </main>
+        </div>
+      </BrowserRouter>
+    </ThemeProvider>
+  );
+}
+
+export default App;
+`
 
 const RoutesGenerated = `import React from 'react';
 import Home from './routes/home.route';
@@ -157,15 +185,54 @@ export const routes = [
 ];`
 
 const HomeRoute = `import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 
 export default function Home() {
   return (
-    <div>
-      <h1>Hello from Wodge!</h1>
-      <p>This is a home route.</p>
+    <div className="space-y-8">
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
+          Welcome to Wodge
+        </h1>
+        <p className="text-xl text-muted-foreground">
+          Your modern, compliant web application platform.
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Getting Started</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="leading-7 [&:not(:first-child)]:mt-6">
+              Edit <code>src/routes/home.route.tsx</code> to see changes instantly.
+            </p>
+            <div className="mt-4">
+              <Button onClick={() => alert('Components work!')}>Click Me</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Features</CardTitle>
+          </CardHeader>
+          <CardContent>
+             <ul className="list-disc pl-6 space-y-2">
+               <li>Tailwind CSS Styling</li>
+               <li>Framer Motion Animations</li>
+               <li>Material UI Icons</li>
+               <li>Theme Switching (Dark/Light)</li>
+             </ul>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-}`
+}
+`
 
 const WodgeClientTS = `const API_BASE = 'http://localhost:8080/api';
 
