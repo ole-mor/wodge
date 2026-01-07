@@ -189,11 +189,9 @@ export default function Home() {
     <div className="max-w-6xl mx-auto space-y-12">
       {/* Hero Section */}
       <div className="flex flex-col items-center text-center space-y-6 py-12">
-        <img 
-          src="/logo_text.png" 
-          alt="Wodge Logo" 
-          className="h-24 w-auto"
-        />
+        <div className="text-6xl font-bold text-primary">
+          WODGE
+        </div>
         <h1 className="text-5xl font-extrabold tracking-tight">
           Welcome to Wodge
         </h1>
