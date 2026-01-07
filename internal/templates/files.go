@@ -159,7 +159,6 @@ import { ThemeProvider } from '@/context/ThemeProvider';
 import { Navbar } from '@/components/ui/Navbar';
 import '@fontsource/assistant';
 import './index.css';
-import './App.css';
 
 function App() {
   return (
@@ -180,11 +179,17 @@ export default App;
 `
 
 const RoutesGenerated = `import React from 'react';
+import { useRoutes } from 'react-router-dom';
 import Home from './routes/home.route';
 
 export const routes = [
   { path: '/', element: <Home /> }
-];`
+];
+
+export function GeneratedRoutes() {
+  return useRoutes(routes);
+}
+`
 
 const HomeRoute = `import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';

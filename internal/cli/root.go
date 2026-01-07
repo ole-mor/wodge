@@ -66,7 +66,6 @@ func createApp(name string) {
 		"src/entry-client.tsx":      templates.EntryClient,
 		"src/entry-server.tsx":      templates.EntryServer,
 		"src/App.tsx":               templates.AppTSX,
-		"src/App.css":               templates.AppCSS,
 		"src/index.css":             templates.IndexCSS,
 		"src/routes.generated.tsx":  templates.RoutesGenerated,
 		"src/routes/home.route.tsx": templates.HomeRoute,

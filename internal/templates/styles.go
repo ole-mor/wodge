@@ -29,9 +29,9 @@ const IndexCSS = `@tailwind base;
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
-}`
+}
 
-const AppCSS = `/* Additional custom styles if needed, mostly handled by Tailwind now */
+/* Animations and Transitions */
 .logo {
   height: 6em;
   padding: 1.5em;
