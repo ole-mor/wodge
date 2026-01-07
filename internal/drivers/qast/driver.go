@@ -108,7 +108,7 @@ func (q *QastDriver) IngestGraph(ctx context.Context, text, userId string) (inte
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/v1/extract", q.baseURL)
+	url := fmt.Sprintf("%s/api/v1/privacy/extract", q.baseURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
