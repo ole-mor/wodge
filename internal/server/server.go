@@ -109,6 +109,8 @@ func initServices() {
 		} else {
 			log.Println("Postgres connected")
 		}
+	} else {
+		log.Println("POSTGRES_DSN is empty, skipping Postgres init")
 	}
 
 	// Redis
@@ -122,6 +124,8 @@ func initServices() {
 		} else {
 			log.Println("Redis connected")
 		}
+	} else {
+		log.Println("REDIS_ADDR is empty, skipping Redis init")
 	}
 
 	// RabbitMQ
