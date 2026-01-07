@@ -21,8 +21,15 @@ import (
 var monitorCmd = &cobra.Command{
 	Use:   "monitor [app_name]",
 	Short: "Monitor a running Wodge backend",
-	Long:  `Monitor a running Wodge backend. If no app name is specified, it will try to find one in the current directory or list available apps.`,
-	Args:  cobra.MaximumNArgs(1),
+	Long: `Monitor a running Wodge backend. 
+If no app name is specified, it will try to find one in the current directory or list available apps.
+
+Available subcommands:
+  monitor list           List all registered apps
+  monitor [app]          Connect to the app's event stream
+  monitor stop [app]     Stop the running app instance
+  monitor remove [app]   Remove form registry (stops first if running)`,
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		reg, err := registry.Load()
 		if err != nil {
