@@ -139,8 +139,7 @@ func runDev(cmd *cobra.Command, args []string) {
 
 	fmt.Println("Running Vite...")
 	if err := viteCmd.Run(); err != nil {
-		fmt.Printf("Error running vite: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("Vite exited: %v\n", err)
 	}
 }
 
