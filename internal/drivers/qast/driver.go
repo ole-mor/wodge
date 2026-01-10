@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 	"wodge/internal/services"
 )
 
@@ -31,10 +32,16 @@ func NewQastDriver(baseURL string, apiKey string) *QastDriver {
 	if apiKey == "" {
 		apiKey = "dev-token-bypass"
 	}
+	transport := &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 100,
+		IdleConnTimeout:     90 * time.Second,
+	}
+
 	return &QastDriver{
 		baseURL:    baseURL,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Transport: transport},
 	}
 }
 
