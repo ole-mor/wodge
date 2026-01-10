@@ -11,6 +11,7 @@ import (
 
 type QastDriver struct {
 	baseURL    string
+	apiKey     string
 	httpClient *http.Client
 }
 
@@ -26,9 +27,13 @@ type composerResponse struct {
 	Error   string   `json:"error,omitempty"`
 }
 
-func NewQastDriver(baseURL string) *QastDriver {
+func NewQastDriver(baseURL string, apiKey string) *QastDriver {
+	if apiKey == "" {
+		apiKey = "dev-token-bypass"
+	}
 	return &QastDriver{
 		baseURL:    baseURL,
+		apiKey:     apiKey,
 		httpClient: &http.Client{},
 	}
 }
@@ -58,6 +63,9 @@ func (q *QastDriver) Ask(ctx context.Context, query, userId, expertise string) (
 		return "", nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
 
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -66,6 +74,12 @@ func (q *QastDriver) Ask(ctx context.Context, query, userId, expertise string) (
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		var errResp map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			if errMsg, ok := errResp["error"].(string); ok {
+				return "", nil, fmt.Errorf("qast api error (%d): %s", resp.StatusCode, errMsg)
+			}
+		}
 		return "", nil, fmt.Errorf("qast api returned status: %d", resp.StatusCode)
 	}
 
@@ -114,6 +128,9 @@ func (q *QastDriver) IngestGraph(ctx context.Context, text, userId string) (inte
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
 
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -122,6 +139,12 @@ func (q *QastDriver) IngestGraph(ctx context.Context, text, userId string) (inte
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		var errResp map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			if errMsg, ok := errResp["error"].(string); ok {
+				return nil, fmt.Errorf("qast api error (%d): %s", resp.StatusCode, errMsg)
+			}
+		}
 		return nil, fmt.Errorf("qast api returned status: %d", resp.StatusCode)
 	}
 

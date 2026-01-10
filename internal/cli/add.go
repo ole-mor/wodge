@@ -247,16 +247,16 @@ func addQastClient(appRoot string) {
 export const qast = {
   // RAG Search via Composer
   async ask(query: string, userId: string = "default-user", expertise: string = "novice"): Promise<{ answer: string; context: string[] }> {
-    return apiPost('/api/v1/composer/ask', { query, user_id: userId, expertise_level: expertise });
+    return apiPost('/qast/ask', { query, user_id: userId, expertise_level: expertise });
   },
 
   // Secure PII Chat via Privacy (Placeholder for future implementation)
   async chat(message: string, userId: string = "default-user"): Promise<{ response: string; sanitized: boolean }> {
-    return apiPost('/api/v1/privacy/chat', { message, user_id: userId });
+    return apiPost('/qast/chat', { message, user_id: userId });
   },
 
   async ingest(text: string, userId: string = "default-user"): Promise<{ status: string; result: any }> {
-    return apiPost('/api/v1/composer/ingest', { text, user_id: userId });
+    return apiPost('/qast/ingest', { text, user_id: userId });
   }
 };
 `,

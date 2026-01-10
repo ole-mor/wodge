@@ -154,7 +154,8 @@ func initServices() {
 	// QAST
 	qastURL := os.Getenv("QAST_URL")
 	if qastURL != "" {
-		qastSvc = qast.NewQastDriver(qastURL)
+		apiKey := os.Getenv("QAST_API_KEY")
+		qastSvc = qast.NewQastDriver(qastURL, apiKey)
 		log.Println("QAST driver initialized")
 	} else {
 		log.Println("QAST_URL is empty, skipping QAST init")
