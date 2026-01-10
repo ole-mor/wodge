@@ -166,3 +166,85 @@ export function Navbar() {
   );
 }
 `
+
+const ComponentQastTest = `import React, { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { qast } from '@/api/qast';
+
+export function QastTest() {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+  const [response, setResponse] = useState<any>(null);
+
+  const testConnectivity = async () => {
+    setStatus('loading');
+    setMessage('Pinging Qast via Proxy...');
+    console.log("Starting connectivity test to Qast Proxy...");
+    try {
+        // We use a simple ingest call or ask call to verify connectivity
+        // Using 'ask' with a ping message
+        const res = await qast.ask("PING_CONNECTIVITY_TEST");
+        console.log("Qast Response:", res);
+        setResponse(res);
+        setStatus('success');
+        setMessage('Connected successfully to Qast Network!');
+    } catch (e) {
+        console.error("Connectivity Test Failed:", e);
+        setStatus('error');
+        setMessage(e instanceof Error ? e.message : 'Connection failed');
+        setResponse(null);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-md mx-auto mt-8 border-2 border-border/50">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+            <span>Qast Connectivity</span>
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-normal text-muted-foreground">Status:</span>
+                {status === 'success' && <div className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />}
+                {status === 'error' && <div className="h-3 w-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />}
+                {status === 'loading' && <div className="h-3 w-3 rounded-full bg-yellow-400 animate-pulse" />}
+                {status === 'idle' && <div className="h-3 w-3 rounded-full bg-gray-600" />}
+            </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="text-xs px-3 py-2 bg-muted/50 rounded border border-border/50 font-mono text-muted-foreground flex justify-between">
+            <span>Proxy Target:</span>
+            <span className="text-foreground">http://localhost:9988</span>
+        </div>
+        
+        <Button 
+            onClick={testConnectivity} 
+            disabled={status === 'loading'} 
+            className="w-full font-bold relative overflow-hidden group"
+            variant={status === 'error' ? 'destructive' : 'primary'}
+        >
+            {status === 'loading' ? 'Establishing Secure Link...' : 'Test Connection'}
+        </Button>
+
+        {message && (
+            <div className={"p-3 rounded-md text-sm font-medium border " + 
+                (status === 'error' ? 'bg-destructive/10 border-destructive/20 text-destructive' : 
+                status === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-muted border-transparent')
+            }>
+                {message}
+            </div>
+        )}
+
+        {response && (
+            <div className="mt-4 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground">Last Response Packet:</div>
+                <div className="p-3 bg-black/40 rounded-md text-xs font-mono overflow-auto max-h-40 border border-border/30 shadow-inner">
+                    <pre>{JSON.stringify(response, null, 2)}</pre>
+                </div>
+            </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+`

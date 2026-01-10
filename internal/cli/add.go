@@ -245,28 +245,30 @@ func addQastClient(appRoot string) {
 		"src/api/qast.ts": `import { apiPost } from '@/lib/wodge';
 
 export const qast = {
+  // RAG Search via Composer
   async ask(query: string, userId: string = "default-user", expertise: string = "novice"): Promise<{ answer: string; context: string[] }> {
-    return apiPost('/qast/ask', { query, user_id: userId, expertise_level: expertise });
+    return apiPost('/api/v1/composer/ask', { query, user_id: userId, expertise_level: expertise });
+  },
+
+  // Secure PII Chat via Privacy (Placeholder for future implementation)
+  async chat(message: string, userId: string = "default-user"): Promise<{ response: string; sanitized: boolean }> {
+    return apiPost('/api/v1/privacy/chat', { message, user_id: userId });
   },
 
   async ingest(text: string, userId: string = "default-user"): Promise<{ status: string; result: any }> {
-    return apiPost('/qast/ingest', { text, user_id: userId });
-  },
-
-  async ingestAsync(text: string, userId: string = "default-user"): Promise<{ status: string; message: string }> {
-    return apiPost('/qast/ingest/async', { text, user_id: userId });
+    return apiPost('/api/v1/composer/ingest', { text, user_id: userId });
   }
 };
 `,
 	}
 	writeFiles(appRoot, files)
 
-	// Default QAST URL
-	updateEnvFile(appRoot, "QAST_URL", "http://localhost:8080")
+	// Default QAST URL (Proxy)
+	updateEnvFile(appRoot, "QAST_URL", "http://localhost:9988")
 
 	fmt.Println("QAST client added to src/api/qast.ts")
 	fmt.Println("Added QAST_URL to .env")
-	fmt.Println("Make sure your QAST service is running!")
+	fmt.Println("Make sure Qast-Link is running!")
 }
 
 func writeFiles(root string, files map[string]string) {

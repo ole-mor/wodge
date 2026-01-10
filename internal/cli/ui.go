@@ -30,6 +30,7 @@ func addUIComponent(cmd *cobra.Command, args []string) {
 		"input":          {"src/components/ui/Input.tsx", templates.ComponentInput},
 		"navbar":         {"src/components/ui/Navbar.tsx", templates.ComponentNavbar},
 		"theme-provider": {"src/context/ThemeProvider.tsx", templates.ThemeProvider},
+		"qast-test":      {"src/components/ui/QastTest.tsx", templates.ComponentQastTest},
 	}
 
 	comp, exists := componentMap[component]
