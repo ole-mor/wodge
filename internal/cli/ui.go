@@ -12,7 +12,7 @@ import (
 var uiCmd = &cobra.Command{
 	Use:   "ui [component]",
 	Short: "Add a UI component to your project",
-	Long:  `Add a UI component to your project. Available components: button, card, input, navbar, theme-provider`,
+	Long:  `Add a UI component to your project. Available components: button, card, input, navbar, theme-provider, qast-test, secure-chat, token-manager`,
 	Args:  cobra.ExactArgs(1),
 	Run:   addUIComponent,
 }
@@ -31,6 +31,8 @@ func addUIComponent(cmd *cobra.Command, args []string) {
 		"navbar":         {"src/components/ui/Navbar.tsx", templates.ComponentNavbar},
 		"theme-provider": {"src/context/ThemeProvider.tsx", templates.ThemeProvider},
 		"qast-test":      {"src/components/ui/QastTest.tsx", templates.ComponentQastTest},
+		"token-manager":  {"src/utils/TokenManager.ts", templates.ComponentTokenManager},
+		"secure-chat":    {"src/components/ui/SecureChat.tsx", templates.ComponentSecureChat},
 	}
 
 	comp, exists := componentMap[component]

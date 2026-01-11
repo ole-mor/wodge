@@ -249,3 +249,204 @@ export function QastTest() {
   );
 }
 `
+
+const ComponentTokenManager = `// A utility to manage Client-Side PII Tokens
+// This mocks a secure storage. In production, this would be Encrypted LocalStorage.
+
+const STORAGE_KEY = 'wodge_token_map';
+
+export const TokenManager = {
+  getMap(): Record<string, string> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      console.error("Failed to parse token map", e);
+      return {};
+    }
+  },
+
+  saveMap(newMap: Record<string, string>) {
+    const current = this.getMap();
+    const updated = { ...current, ...newMap };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  },
+
+  get(token: string): string | null {
+    const map = this.getMap();
+    return map[token] || null;
+  },
+
+  // Replaces all known tokens in text with their real values
+  rehydrate(text: string): string {
+    const map = this.getMap();
+    let rehydrated = text;
+    
+    // Sort keys by length desc to avoid partial replacements if tokens overlap
+    const tokens = Object.keys(map).sort((a, b) => b.length - a.length);
+    
+    for (const token of tokens) {
+      // Global replace of the token
+      // Escape generic regex characters in token if necessary (usually tokens are [TYPE_N])
+      const escapedToken = token.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(escapedToken, 'g');
+      rehydrated = rehydrated.replace(regex, map[token]);
+    }
+    
+    return rehydrated;
+  }
+};
+`
+
+const ComponentSecureChat = `import React, { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { qast } from '@/api/qast';
+import { TokenManager } from '@/utils/TokenManager'; 
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string; // This is the displayed content (rehydrated)
+  isSanitized?: boolean; // If true, it was processed securely
+}
+
+export function SecureChat() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      // 1. Send text to Qast Secure Chat (User -> Proxy -> Qast)
+      // The backend will Anonymize -> Store Mapping (Temp/Return) -> Ask LLM -> Return
+      // We expect { llm_response: string, token_map: Record<string, string> }
+      
+      const res = await qast.chat(input);
+      
+      // 2. Update Client-Side Token Manager with new mappings
+      if (res.token_map) {
+        TokenManager.saveMap(res.token_map);
+        console.log("SecureChat: Updated Token Map", res.token_map);
+      }
+
+      // 3. Rehydrate the response (Replace tokens with real names)
+      const realText = TokenManager.rehydrate(res.llm_response);
+
+      const botMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: realText,
+        isSanitized: true
+      };
+
+      setMessages(prev => [...prev, botMsg]);
+
+    } catch (e) {
+      console.error("SecureChat Error:", e);
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "Error: Failed to establish secure link. " + (e instanceof Error ? e.message : ''),
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col border-2 border-border/50 shadow-xl">
+      <CardHeader className="border-b border-border/50 bg-muted/20">
+        <CardTitle className="flex items-center gap-2">
+          <span>Secure Chat</span>
+          <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
+            End-to-End Privacy
+          </span>
+        </CardTitle>
+      </CardHeader>
+      
+      <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
+        {/* Messages Port */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
+          <AnimatePresence initial={false}>
+            {messages.map(msg => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className={"flex w-full " + (msg.role === 'user' ? 'justify-end' : 'justify-start')}
+              >
+                <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm " + 
+                  (msg.role === 'user' 
+                    ? 'bg-primary text-primary-foreground rounded-br-none' 
+                    : 'bg-muted text-foreground rounded-bl-none border border-border/50')
+                }>
+                  {msg.content}
+                   {/* Verification Badge for Assistant */}
+                   {msg.role === 'assistant' && msg.isSanitized && (
+                    <div className="mt-2 text-[10px] opacity-70 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                        <span>PII Rehydrated locally</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          
+          {isLoading && (
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+               <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-xs text-muted-foreground flex items-center gap-2">
+                 <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                 <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                 <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+               </div>
+             </motion.div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 bg-background border-t border-border/50 flex gap-2">
+          <Input 
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            placeholder="Type a message safely..."
+            className="flex-1"
+            disabled={isLoading}
+          />
+          <Button 
+            onClick={handleSend} 
+            disabled={isLoading || !input.trim()}
+            variant="primary"
+          >
+            Send
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+`

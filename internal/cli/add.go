@@ -250,9 +250,9 @@ export const qast = {
     return apiPost('/qast/ask', { query, user_id: userId, expertise_level: expertise });
   },
 
-  // Secure PII Chat via Privacy (Placeholder for future implementation)
-  async chat(message: string, userId: string = "default-user"): Promise<{ response: string; sanitized: boolean }> {
-    return apiPost('/qast/chat', { message, user_id: userId });
+  // Secure PII Chat via Privacy (Rehydration handles the real PII)
+  async chat(text: string, userId: string = "default-user"): Promise<{ llm_response: string; token_map: Record<string, string> }> {
+    return apiPost('/qast/chat', { text, user_id: userId });
   },
 
   async ingest(text: string, userId: string = "default-user"): Promise<{ status: string; result: any }> {

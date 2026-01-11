@@ -93,6 +93,7 @@ func Start(port int) {
 		api.POST("/qast/ask", handleQastAsk)
 		api.POST("/qast/ingest", handleQastIngest)
 		api.POST("/qast/ingest/async", handleQastIngestAsync)
+		api.POST("/qast/chat", handleQastSecureChat)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -354,4 +355,27 @@ func handleQastIngestAsync(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusAccepted, gin.H{"status": "accepted", "message": "Ingestion started in background"})
+}
+
+// POST /api/qast/chat { "text": "..." }
+func handleQastSecureChat(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	var req struct {
+		Text   string `json:"text"`
+		UserID string `json:"user_id"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	llmResponse, tokenMap, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"llm_response": llmResponse, "token_map": tokenMap})
 }

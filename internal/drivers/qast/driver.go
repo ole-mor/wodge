@@ -166,3 +166,57 @@ func (q *QastDriver) IngestGraph(ctx context.Context, text, userId string) (inte
 
 	return respBody.Result, nil
 }
+
+type secureChatResponse struct {
+	LLMResponse string            `json:"llm_response"`
+	TokenMap    map[string]string `json:"token_map"`
+}
+
+func (q *QastDriver) SecureChat(ctx context.Context, text, userId string) (string, map[string]string, error) {
+	if q == nil || q.httpClient == nil {
+		return "", nil, fmt.Errorf("qast driver is nil")
+	}
+
+	reqBody := composerRequest{
+		Query:  text,
+		UserID: userId,
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/api/v1/privacy/chat", q.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to call qast api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil {
+			if errMsg, ok := errResp["error"].(string); ok {
+				return "", nil, fmt.Errorf("qast api error (%d): %s", resp.StatusCode, errMsg)
+			}
+		}
+		return "", nil, fmt.Errorf("qast api returned status: %d", resp.StatusCode)
+	}
+
+	var respBody secureChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+		return "", nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return respBody.LLMResponse, respBody.TokenMap, nil
+}
