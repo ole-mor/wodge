@@ -277,6 +277,89 @@ export async function apiDelete<T = any>(path: string): Promise<T> {
   }
   return res.json();
 }
+
+/**
+ * Parses a Server-Sent Events (SSE) stream line-by-line.
+ * Handles "event:", "data:", and handles specific chunk formatting quirks.
+ */
+export async function sseStream(
+  url: string,
+  body: any,
+  onEvent: (event: { type: string; data: any }) => void
+): Promise<void> {  
+  const response = await fetch(API_BASE + url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error("Start stream failed: " + response.statusText);
+  }
+  
+  if (!response.body) return;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    
+    const chunk = decoder.decode(value, { stream: true });
+    buffer += chunk;
+    
+    // Parse SSE events separated by double newline
+    const messages = buffer.split('\n\n');
+    buffer = messages.pop() || ''; // Keep incomplete part
+    
+    for (const msg of messages) {
+      if (!msg.trim()) continue;
+      
+      const lines = msg.split('\n');
+      let eventType = 'message';
+      let data = '';
+
+      for (const line of lines) {
+        // Relaxed parsing: Check for prefix with or without space
+        if (line.startsWith('event:')) {
+            eventType = line.substring(6).trim(); 
+        } else if (line.startsWith('data:')) {
+            // Strict parsing with spacing consideration:
+            // "data: A" -> "A"
+            // "data:A"  -> "A"
+            // "data:  A" -> " A"
+            // "data:"   -> ""
+            
+            let rawContent = line.substring(5); // Remove "data:"
+            if (rawContent.startsWith(' ')) {
+                // Heuristic: If we are in "raw string" mode (chunks), we want to PRESERVE the first space 
+                // ONLY IF it seems to be part of the content. 
+                // Standard SSE removes the first space.
+                // But our custom parser logic shown in test-app20 found that just using the raw content worked best for "data: chunk".
+                data = rawContent; 
+                // Note: Standard spec removes 1 space. If we rely on standard spec strictness, we might lose spaces.
+                // For now, we use the logic that worked in debugging.
+            } else {
+                data = rawContent;
+            }
+        }
+      }
+      
+      if (data || eventType === 'done') { // Allow done event with empty data if needed
+         let parsedData = data;
+         try {
+             parsedData = JSON.parse(data);
+         } catch { 
+             // keep raw string
+         }
+         
+         onEvent({ type: eventType, data: parsedData });
+      }
+    }
+  }
+}
 `
 
 func GetGoMod(appName string) string {

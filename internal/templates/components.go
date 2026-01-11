@@ -393,6 +393,7 @@ export function SecureChat() {
                 console.log("SecureChat: Updated Token Map", event.data);
             } else if (event.type === 'chunk') {
                 // Accumulate and rehydrate on every chunk
+                // console.log("SecureChat Chunk Rx:", event.data); // DEBUG: Uncomment if needed
                 currentContent += event.data;
                 const rehydrated = TokenManager.rehydrate(currentContent);
                 

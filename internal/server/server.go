@@ -390,10 +390,22 @@ func handleQastSecureChat(c *gin.Context) {
 	// Flush immediately to establish stream
 	c.Writer.Flush()
 
-	// Copy stream from backend to client
-	_, err = io.Copy(c.Writer, stream)
-	if err != nil {
-		// Cannot write JSON error if headers already flushed, but we can log
-		log.Printf("Streaming error: %v", err)
+	// Manual copy loop to ensure flushing after every chunk
+	buf := make([]byte, 1024)
+	for {
+		n, err := stream.Read(buf)
+		if n > 0 {
+			if _, wErr := c.Writer.Write(buf[:n]); wErr != nil {
+				log.Printf("Streaming write error: %v", wErr)
+				return // Client disconnected
+			}
+			c.Writer.Flush()
+		}
+		if err != nil {
+			if err != io.EOF {
+				log.Printf("Streaming read error: %v", err)
+			}
+			break
+		}
 	}
 }
