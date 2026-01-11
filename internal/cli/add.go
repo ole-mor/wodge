@@ -248,12 +248,19 @@ func addAuthClient(appRoot string) {
 		"src/api/auth.ts": `import { apiPost } from '@/lib/wodge';
 
 export const auth = {
-  async login(email: string, password: string): Promise<any> {
-    return apiPost('/auth/login', { email, password });
+  async login(username: string, password: string): Promise<any> {
+    return apiPost('/auth/login', { username, password });
   },
 
-  async register(email: string, password: string, firstName: string, lastName: string): Promise<any> {
-    return apiPost('/auth/register', { email, password, first_name: firstName, last_name: lastName });
+  async register(email: string, username: string, password: string, confirmPassword: string, firstName: string, lastName: string): Promise<any> {
+    return apiPost('/auth/register', { 
+        email, 
+        username, 
+        password, 
+        confirm_password: confirmPassword, 
+        first_name: firstName, 
+        last_name: lastName 
+    });
   },
   
   async verify(token: string): Promise<any> {

@@ -512,8 +512,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
-  login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, first: string, last: string) => Promise<void>;
+  login: (username: string, pass: string) => Promise<void>;
+  register: (email: string, username: string, pass: string, confirmPass: string, first: string, last: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -545,8 +545,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, pass: string) => {
-    const res = await auth.login(email, pass);
+  const login = async (username: string, pass: string) => {
+    const res = await auth.login(username, pass);
     if (res.access_token) {
         setAccessToken(res.access_token);
         setUser(res.user);
@@ -556,9 +556,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, pass: string, first: string, last: string) => {
-    await auth.register(email, pass, first, last);
-    await login(email, pass);
+  const register = async (email: string, username: string, pass: string, confirmPass: string, first: string, last: string) => {
+    await auth.register(email, username, pass, confirmPass, first, last);
+    await login(username, pass);
   };
 
   const logout = () => {
@@ -632,25 +632,42 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [form, setForm] = useState({
+    email: '',
+    username: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: ''
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      if (isLogin) {
-        await login(email, password);
-      } else {
-        await register(email, password, firstName, lastName);
-      }
+      await login(form.username, form.password);
       navigate(from, { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+    } catch (err: any) {
+      setError(err.message || err.toString() || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await register(form.email, form.username, form.password, form.confirmPassword, form.firstName, form.lastName);
+      navigate(from, { replace: true });
+    } catch (err: any) {
+      setError(err.message || err.toString() || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -675,35 +692,46 @@ export default function LoginPage() {
             </motion.div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-4">
             <AnimatePresence mode="popLayout">
                 {!isLogin && (
                     <motion.div 
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="grid grid-cols-2 gap-4"
+                        className="space-y-4"
                     >
-                        <div className="space-y-2">
-                            <label className="text-xs font-medium">First Name</label>
-                            <Input placeholder="John" required={!isLogin} value={firstName} onChange={e => setFirstName(e.target.value)} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium">First Name</label>
+                                <Input placeholder="John" required={!isLogin} value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium">Last Name</label>
+                                <Input placeholder="Doe" required={!isLogin} value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} />
+                            </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-medium">Last Name</label>
-                            <Input placeholder="Doe" required={!isLogin} value={lastName} onChange={e => setLastName(e.target.value)} />
+                            <label className="text-xs font-medium">Email</label>
+                            <Input 
+                                type="email" 
+                                placeholder="name@example.com" 
+                                required={!isLogin}
+                                value={form.email}
+                                onChange={e => setForm({ ...form, email: e.target.value })}
+                            />
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             <div className="space-y-2">
-              <label className="text-xs font-medium">Email</label>
+              <label className="text-xs font-medium">Username</label>
               <Input 
-                type="email" 
-                placeholder="name@example.com" 
+                placeholder="jdoe" 
                 required 
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                value={form.username}
+                onChange={e => setForm({ ...form, username: e.target.value })}
               />
             </div>
             
@@ -713,10 +741,23 @@ export default function LoginPage() {
                 type="password" 
                 placeholder="••••••••" 
                 required 
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+                value={form.password}
+                onChange={e => setForm({ ...form, password: e.target.value })}
               />
             </div>
+
+            {!isLogin && (
+                <div className="space-y-2">
+                    <label className="text-xs font-medium">Confirm Password</label>
+                    <Input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        required={!isLogin}
+                        value={form.confirmPassword}
+                        onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                    />
+                </div>
+            )}
 
             {error && (
               <div className="p-3 rounded bg-destructive/10 text-destructive text-sm font-medium border border-destructive/20">

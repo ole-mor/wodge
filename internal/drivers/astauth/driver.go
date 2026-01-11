@@ -12,10 +12,10 @@ import (
 )
 
 type AstAuthService interface {
-	Register(ctx context.Context, email, password, firstName, lastName string) error
-	Login(ctx context.Context, email, password string) (*AuthResponse, error)
-	// RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
-	// VerifyToken(ctx context.Context, token string) (*UserResponse, error)
+	Login(ctx context.Context, username, password string) (*AuthResponse, error)
+	Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName string) error
+	VerifyToken(ctx context.Context, accessToken string) (*User, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
 }
 
 type AstAuthDriver struct {
@@ -46,9 +46,9 @@ type User struct {
 	Role      string `json:"role"`
 }
 
-func (d *AstAuthDriver) Login(ctx context.Context, email, password string) (*AuthResponse, error) {
+func (d *AstAuthDriver) Login(ctx context.Context, username, password string) (*AuthResponse, error) {
 	reqBody := map[string]string{
-		"email":    email,
+		"username": username,
 		"password": password,
 	}
 	jsonBody, _ := json.Marshal(reqBody)
@@ -141,12 +141,14 @@ func (d *AstAuthDriver) VerifyToken(ctx context.Context, accessToken string) (*U
 	return &user, nil
 }
 
-func (d *AstAuthDriver) Register(ctx context.Context, email, password, firstName, lastName string) error {
+func (d *AstAuthDriver) Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName string) error {
 	reqBody := map[string]string{
-		"email":      email,
-		"password":   password,
-		"first_name": firstName,
-		"last_name":  lastName,
+		"email":            email,
+		"username":         username,
+		"password":         password,
+		"confirm_password": confirmPassword,
+		"first_name":       firstName,
+		"last_name":        lastName,
 	}
 	jsonBody, _ := json.Marshal(reqBody)
 

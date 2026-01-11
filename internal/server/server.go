@@ -436,14 +436,14 @@ func handleAuthLogin(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Email    string `json:"email"`
+		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	resp, err := astAuthSvc.Login(c.Request.Context(), req.Email, req.Password)
+	resp, err := astAuthSvc.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -458,16 +458,18 @@ func handleAuthRegister(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Email     string `json:"email"`
-		Password  string `json:"password"`
-		FirstName string `json:"first_name"`
-		LastName  string `json:"last_name"`
+		Email           string `json:"email"`
+		Username        string `json:"username"`
+		Password        string `json:"password"`
+		ConfirmPassword string `json:"confirm_password"`
+		FirstName       string `json:"first_name"`
+		LastName        string `json:"last_name"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	err := astAuthSvc.Register(c.Request.Context(), req.Email, req.Password, req.FirstName, req.LastName)
+	err := astAuthSvc.Register(c.Request.Context(), req.Email, req.Username, req.Password, req.ConfirmPassword, req.FirstName, req.LastName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
