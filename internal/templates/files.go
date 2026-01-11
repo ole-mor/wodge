@@ -239,7 +239,7 @@ export default function Home() {
 }
 `
 
-const WodgeClientTS = `export const API_BASE = 'http://localhost:8082/api';
+const WodgeClientTS = `export const API_BASE = 'http://localhost:8080/api';
 
 export async function apiGet<T = any>(path: string): Promise<T> {
   const res = await fetch(API_BASE + path, {
@@ -457,7 +457,6 @@ const EnvFile = `# Wodge Environment Variables
 
 # Backend Configuration
 PORT=8080
-VITE_API_URL=http://localhost:8080/api
 
 # Add service configurations below via 'wodge add api ...'
 `
