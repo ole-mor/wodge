@@ -23,7 +23,8 @@ func GetPackageJSON(appName string) string {
     "@emotion/styled": "^11.11.0",
     "@fontsource/assistant": "^5.0.0",
     "clsx": "^2.1.0",
-    "tailwind-merge": "^2.2.0"
+    "tailwind-merge": "^2.2.0",
+    "lucide-react": "^0.395.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

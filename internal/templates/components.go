@@ -181,10 +181,8 @@ export function QastTest() {
   const testConnectivity = async () => {
     setStatus('loading');
     setMessage('Pinging Qast via Proxy...');
-    console.log("Starting connectivity test to Qast Proxy...");
+    setResponse(null);
     try {
-        // We use a simple ingest call or ask call to verify connectivity
-        // Using 'ask' with a ping message
         const res = await qast.ask("PING_CONNECTIVITY_TEST");
         console.log("Qast Response:", res);
         setResponse(res);
@@ -195,6 +193,30 @@ export function QastTest() {
         setStatus('error');
         setMessage(e instanceof Error ? e.message : 'Connection failed');
         setResponse(null);
+    }
+  };
+
+  const testStreaming = async () => {
+    setStatus('loading');
+    setMessage('Testing Streaming Channel...');
+    setResponse([]);
+    try {
+        await qast.chatStream("PING_STREAM_TEST", (event) => {
+            console.log("Stream Event:", event);
+            setResponse((prev: any) => {
+                const arr = Array.isArray(prev) ? prev : [];
+                return [...arr, event];
+            });
+            if (event.type === 'status') setMessage(event.data);
+            if (event.type === 'done') {
+                setStatus('success');
+                setMessage('Streaming Test Completed!');
+            }
+        });
+    } catch (e) {
+        console.error("Stream Test Failed:", e);
+        setStatus('error');
+        setMessage('Stream Error: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -218,14 +240,24 @@ export function QastTest() {
             <span className="text-foreground">http://localhost:9988</span>
         </div>
         
-        <Button 
-            onClick={testConnectivity} 
-            disabled={status === 'loading'} 
-            className="w-full font-bold relative overflow-hidden group"
-            variant={status === 'error' ? 'destructive' : 'primary'}
-        >
-            {status === 'loading' ? 'Establishing Secure Link...' : 'Test Connection'}
-        </Button>
+        <div className="flex gap-2">
+            <Button 
+                onClick={testConnectivity} 
+                disabled={status === 'loading'} 
+                className="flex-1 font-bold"
+                variant={status === 'error' ? 'destructive' : 'primary'}
+            >
+                Ping
+            </Button>
+            <Button 
+                onClick={testStreaming} 
+                disabled={status === 'loading'} 
+                className="flex-1 font-bold"
+                variant="outline"
+            >
+                Stream Test
+            </Button>
+        </div>
 
         {message && (
             <div className={"p-3 rounded-md text-sm font-medium border " + 
@@ -238,7 +270,7 @@ export function QastTest() {
 
         {response && (
             <div className="mt-4 space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground">Last Response Packet:</div>
+                <div className="text-xs font-semibold text-muted-foreground">Response Dump:</div>
                 <div className="p-3 bg-black/40 rounded-md text-xs font-mono overflow-auto max-h-40 border border-border/30 shadow-inner">
                     <pre>{JSON.stringify(response, null, 2)}</pre>
                 </div>

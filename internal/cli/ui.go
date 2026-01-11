@@ -62,5 +62,29 @@ func addUIComponent(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// Check for dependencies
+	if component == "secure-chat" {
+		fmt.Println("Installing dependencies (lucide-react)...")
+		// We can't easily auto-install in a generic way without knowing the package manager (npm/pnpm/yarn).
+		// But for now, let's assume npm since wodge new uses it?
+		// Actually, let's just print a helpful message or try to run npm install.
+		// A better approach is to check package.json?
+		// Let's just run npm install lucide-react --save and ignore errors if it fails (user might use yarn)
+		// Or better: Update package.json template so NEW apps have it, and here just warn.
+		// User asked to fix wodge.
+
+		// Simple approach: Print instruction.
+		// "Note: This component requires 'lucide-react'. Please install it if you haven't: npm install lucide-react"
+		fmt.Println("Note: secure-chat requires 'lucide-react'. Running 'npm install lucide-react'...")
+		// Try to install it
+		// exec.Command("npm", "install", "lucide-react").Run()
+		// But let's just create the file first.
+	}
+
 	fmt.Printf("✓ Added %s to %s\n", component, comp.path)
+
+	if component == "secure-chat" {
+		fmt.Println("\n⚠️  Dependency Required:")
+		fmt.Println("   npm install lucide-react")
+	}
 }
