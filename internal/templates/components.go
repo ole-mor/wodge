@@ -1,7 +1,7 @@
 package templates
 
 const ComponentButton = `import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type HTMLMotionProps } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -9,7 +9,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends HTMLMotionProps<'button'> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
 }
@@ -499,7 +499,6 @@ export function SecureChat() {
 `
 
 const ComponentAuthProvider = `import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiPost } from '@/lib/wodge';
 import { auth } from '@/api/auth';
 
 interface User {
@@ -552,6 +551,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.user);
         
         localStorage.setItem('access_token', res.access_token);
+        localStorage.setItem('refresh_token', res.refresh_token);
         localStorage.setItem('user_profile', JSON.stringify(res.user));
     }
   };
@@ -564,9 +564,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       if (accessToken) {
-        // We call server-side logout. Note: we don't have refresh token easily accessible 
-        // here unless we store it in state too. For now we prioritize clearing local state.
-        await auth.logout(accessToken, ""); 
+        const refreshToken = localStorage.getItem('refresh_token');
+        await auth.logout(accessToken, refreshToken || ""); 
       }
     } catch (e) {
       console.warn("Logout error:", e);
@@ -574,6 +573,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(null);
       setUser(null);
       localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user_profile');
     }
   };
