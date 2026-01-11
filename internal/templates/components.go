@@ -497,3 +497,260 @@ export function SecureChat() {
   );
 }
 `
+
+const ComponentAuthProvider = `import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiPost } from '@/lib/wodge';
+import { auth } from '@/api/auth';
+
+interface User {
+  id: string;
+  email: string;
+  role: string;
+  [key: string]: any;
+}
+
+interface AuthContextType {
+  user: User | null;
+  accessToken: string | null;
+  login: (email: string, pass: string) => Promise<void>;
+  register: (email: string, pass: string, first: string, last: string) => Promise<void>;
+  logout: () => void;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(localStorage.getItem('access_token'));
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Optionally verify token on mount or fetch user profile
+    // For now we just check if token exists to set minimal state
+    if (accessToken) {
+        // In real app, we might want to fetch /users/me here
+        // For simplicity, we assume token means authenticated
+        try {
+            const storedUser = localStorage.getItem('user_profile');
+            if (storedUser) setUser(JSON.parse(storedUser));
+        } catch {}
+    }
+    setIsLoading(false);
+  }, []);
+
+  const login = async (email: string, pass: string) => {
+    const res = await auth.login(email, pass);
+    if (res.access_token) {
+        setAccessToken(res.access_token);
+        setUser(res.user);
+        
+        localStorage.setItem('access_token', res.access_token);
+        localStorage.setItem('user_profile', JSON.stringify(res.user));
+    }
+  };
+
+  const register = async (email: string, pass: string, first: string, last: string) => {
+    await auth.register(email, pass, first, last);
+    // Auto login after register? Or require login.
+    // Let's auto login for UX
+    await login(email, pass);
+  };
+
+  const logout = () => {
+    setAccessToken(null);
+    setUser(null);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_profile');
+  };
+
+  return (
+    <AuthContext.Provider value={{ 
+        user, 
+        accessToken, 
+        login, 
+        register, 
+        logout, 
+        isAuthenticated: !!accessToken,
+        isLoading 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+`
+
+const ComponentProtectedRoute = `import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/AuthProvider';
+
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center p-8 bg-background text-muted-foreground animate-pulse">Loading auth...</div>;
+  }
+
+  if (!isAuthenticated) {
+    // Redirect to login, but save the current location they were trying to go to
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+}
+`
+
+const ComponentLoginPage = `import React, { useState } from 'react';
+import { useAuth } from '@/context/AuthProvider';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { motion, AnimatePresence } from 'framer-motion';
+
+export default function LoginPage() {
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as any)?.from?.pathname || '/';
+
+  const [isLogin, setIsLogin] = useState(true);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        await register(email, password, firstName, lastName);
+      }
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-border/50 shadow-2xl">
+        <CardHeader className="text-center pb-2">
+            <motion.div 
+                key={isLogin ? 'login' : 'register'}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+            >
+                <CardTitle className="text-3xl font-bold tracking-tight mb-2">
+                    {isLogin ? 'Welcome Back' : 'Create Account'}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                    {isLogin ? 'Enter your credentials to access your account' : 'Sign up to get started with Wodge'}
+                </p>
+            </motion.div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <AnimatePresence mode="popLayout">
+                {!isLogin && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="grid grid-cols-2 gap-4"
+                    >
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium">First Name</label>
+                            <Input placeholder="John" required={!isLogin} value={firstName} onChange={e => setFirstName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium">Last Name</label>
+                            <Input placeholder="Doe" required={!isLogin} value={lastName} onChange={e => setLastName(e.target.value)} />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Email</label>
+              <Input 
+                type="email" 
+                placeholder="name@example.com" 
+                required 
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Password</label>
+              <Input 
+                type="password" 
+                placeholder="••••••••" 
+                required 
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+            </div>
+
+            {error && (
+              <div className="p-3 rounded bg-destructive/10 text-destructive text-sm font-medium border border-destructive/20">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full font-bold" disabled={loading} size="lg">
+              {loading ? (
+                  <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Processing...
+                  </span>
+              ) : (isLogin ? 'Sign In' : 'Sign Up')}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-muted-foreground">
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+            </span>
+            <button 
+                type="button"
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                className="font-semibold text-primary hover:underline focus:outline-none"
+            >
+                {isLogin ? 'Sign up' : 'Sign in'}
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Background decoration */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+          <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-blue-500/5 blur-[100px] rounded-full -translate-x-1/2 translate-y-1/2" />
+      </div>
+    </div>
+  );
+}
+`
