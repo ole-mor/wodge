@@ -16,6 +16,7 @@ type AstAuthService interface {
 	Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName string) error
 	VerifyToken(ctx context.Context, accessToken string) (*User, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
+	Logout(ctx context.Context, accessToken, refreshToken string) error
 }
 
 type AstAuthDriver struct {
@@ -167,6 +168,33 @@ func (d *AstAuthDriver) Register(ctx context.Context, email, username, password,
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("register failed (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+func (d *AstAuthDriver) Logout(ctx context.Context, accessToken, refreshToken string) error {
+	reqBody := map[string]string{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", d.BaseURL+"/api/v1/auth/logout", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("logout failed (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	return nil

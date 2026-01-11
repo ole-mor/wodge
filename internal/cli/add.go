@@ -286,6 +286,9 @@ export const auth = {
 
   async refreshToken(refreshToken: string): Promise<any> {
       return apiPost('/auth/refresh', { refresh_token: refreshToken });
+  },
+  async logout(accessToken: string, refreshToken: string): Promise<any> {
+      return apiPost('/auth/logout', { access_token: accessToken, refresh_token: refreshToken });
   }
 };
 `,

@@ -103,6 +103,7 @@ func Start(port int) {
 		api.POST("/auth/register", handleAuthRegister)
 		api.POST("/auth/refresh", handleAuthRefresh)
 		api.POST("/auth/verify", handleAuthVerify)
+		api.POST("/auth/logout", handleAuthLogout)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -524,4 +525,26 @@ func handleAuthVerify(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+// POST /api/auth/logout
+func handleAuthLogout(c *gin.Context) {
+	if astAuthSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AstAuth not configured"})
+		return
+	}
+	var req struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	err := astAuthSvc.Logout(c.Request.Context(), req.AccessToken, req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

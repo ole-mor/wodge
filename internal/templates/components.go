@@ -514,7 +514,7 @@ interface AuthContextType {
   accessToken: string | null;
   login: (username: string, pass: string) => Promise<void>;
   register: (email: string, username: string, pass: string, confirmPass: string, first: string, last: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -561,12 +561,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await login(username, pass);
   };
 
-  const logout = () => {
-    setAccessToken(null);
-    setUser(null);
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_profile');
-    // Optionally call server logout
+  const logout = async () => {
+    try {
+      if (accessToken) {
+        // We call server-side logout. Note: we don't have refresh token easily accessible 
+        // here unless we store it in state too. For now we prioritize clearing local state.
+        await auth.logout(accessToken, ""); 
+      }
+    } catch (e) {
+      console.warn("Logout error:", e);
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_profile');
+    }
   };
 
   return (
