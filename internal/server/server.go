@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -372,10 +373,27 @@ func handleQastSecureChat(c *gin.Context) {
 		return
 	}
 
-	llmResponse, tokenMap, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID)
+	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID)
 	if err != nil {
+		log.Printf("[Wodge] SecureChat failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"llm_response": llmResponse, "token_map": tokenMap})
+	defer stream.Close()
+
+	// Set SSE headers
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+
+	// Flush immediately to establish stream
+	c.Writer.Flush()
+
+	// Copy stream from backend to client
+	_, err = io.Copy(c.Writer, stream)
+	if err != nil {
+		// Cannot write JSON error if headers already flushed, but we can log
+		log.Printf("Streaming error: %v", err)
+	}
 }

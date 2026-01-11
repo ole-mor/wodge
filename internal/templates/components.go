@@ -317,13 +317,14 @@ export function SecureChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, loadingStatus]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -337,42 +338,52 @@ export function SecureChat() {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
+    setLoadingStatus("Securely processing...");
+
+    // Preliminary empty bot message to fill
+    const botMsgId = (Date.now() + 1).toString();
+    const botMsg: Message = {
+      id: botMsgId,
+      role: 'assistant',
+      content: '', // Will stream in
+      isSanitized: true
+    };
+    setMessages(prev => [...prev, botMsg]);
 
     try {
-      // 1. Send text to Qast Secure Chat (User -> Proxy -> Qast)
-      // The backend will Anonymize -> Store Mapping (Temp/Return) -> Ask LLM -> Return
-      // We expect { llm_response: string, token_map: Record<string, string> }
-      
-      const res = await qast.chat(input);
-      
-      // 2. Update Client-Side Token Manager with new mappings
-      if (res.token_map) {
-        TokenManager.saveMap(res.token_map);
-        console.log("SecureChat: Updated Token Map", res.token_map);
-      }
+        let currentContent = "";
 
-      // 3. Rehydrate the response (Replace tokens with real names)
-      const realText = TokenManager.rehydrate(res.llm_response);
-
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: realText,
-        isSanitized: true
-      };
-
-      setMessages(prev => [...prev, botMsg]);
+        await qast.chatStream(userMsg.content, (event) => {
+            if (event.type === 'status') {
+                setLoadingStatus(event.data);
+            } else if (event.type === 'token_map') {
+                TokenManager.saveMap(event.data);
+                console.log("SecureChat: Updated Token Map", event.data);
+            } else if (event.type === 'chunk') {
+                // Accumulate and rehydrate on every chunk
+                currentContent += event.data;
+                const rehydrated = TokenManager.rehydrate(currentContent);
+                
+                setMessages(prev => prev.map(m => 
+                    m.id === botMsgId ? { ...m, content: rehydrated } : m
+                ));
+            } else if (event.type === 'error') {
+                console.error("Stream Error:", event.data);
+                // Optionally show error in chat?
+            }
+        });
 
     } catch (e) {
       console.error("SecureChat Error:", e);
       const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: (Date.now() + 2).toString(),
         role: 'assistant',
-        content: "Error: Failed to establish secure link. " + (e instanceof Error ? e.message : ''),
+        content: "Error: " + (e instanceof Error ? e.message : ''),
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
+      setLoadingStatus("");
     }
   };
 
@@ -419,7 +430,7 @@ export function SecureChat() {
           {isLoading && (
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-xs text-muted-foreground flex items-center gap-2">
-                 <span>Securely processing</span>
+                 <span>{loadingStatus || "Securely processing"}</span>
                  <div className="flex gap-1">
                     <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
