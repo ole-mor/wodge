@@ -242,7 +242,7 @@ export const rabbitmq = {
 func addQastClient(appRoot string) {
 	fmt.Println("Adding QAST Client...")
 	files := map[string]string{
-		"src/api/qast.ts": `import { apiPost } from '@/lib/wodge';
+		"src/api/qast.ts": `import { apiPost, API_BASE } from '@/lib/wodge';
 
 export const qast = {
   // RAG Search via Composer
@@ -250,9 +250,50 @@ export const qast = {
     return apiPost('/qast/ask', { query, user_id: userId, expertise_level: expertise });
   },
 
-  // Secure PII Chat via Privacy (Rehydration handles the real PII)
-  async chat(text: string, userId: string = "default-user"): Promise<{ llm_response: string; token_map: Record<string, string> }> {
-    return apiPost('/qast/chat', { text, user_id: userId });
+  // Secure PII Chat with Streaming (SSE)
+  // Calls onEvent with { type: 'status' | 'token_map' | 'chunk' | 'done', data: any }
+  async chatStream(text: string, onEvent: (event: { type: string; data: any }) => void, userId: string = "default-user"): Promise<void> {
+    const response = await fetch(API_BASE + '/qast/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, user_id: userId }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Start stream failed: " + response.statusText);
+    }
+    
+    if (!response.body) return;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+      
+      // Parse SSE lines
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || ''; // Keep incomplete part
+      
+      for (const line of lines) {
+        const typeMatch = line.match(/^event: (.+)$/m);
+        const dataMatch = line.match(/^data: (.+)$/m);
+        
+        if (typeMatch && dataMatch) {
+           let data = dataMatch[1];
+           try {
+               data = JSON.parse(data);
+           } catch { /* pass raw string if not json */ }
+           
+           onEvent({ type: typeMatch[1], data });
+        }
+      }
+    }
   },
 
   async ingest(text: string, userId: string = "default-user"): Promise<{ status: string; result: any }> {
