@@ -15,6 +15,17 @@ func GenerateRoutes(srcDir string) error {
 	var imports []string
 	var routeObjects []string
 
+	// Check if ProtectedRoute exists
+	protectedRoutePath := filepath.Join(srcDir, "components", "ProtectedRoute.tsx")
+	hasProtection := false
+	if _, err := os.Stat(protectedRoutePath); err == nil {
+		hasProtection = true
+	}
+
+	if hasProtection {
+		imports = append(imports, "import { ProtectedRoute } from '@/components/ProtectedRoute';")
+	}
+
 	// Scan routes directory only (NOT api directory - API routes are not page routes)
 	entries, err := os.ReadDir(routesDir)
 	if err != nil {
@@ -32,10 +43,6 @@ func GenerateRoutes(srcDir string) error {
 			}
 
 			// Parse route path from filename
-			// home.route.tsx -> /
-			// about.route.tsx -> /about
-			// users.[id].route.tsx -> /users/:id (simplified logic for now)
-
 			baseName := strings.TrimSuffix(name, ".route.tsx")
 			componentName := toPascalCase(baseName)
 
@@ -46,9 +53,23 @@ func GenerateRoutes(srcDir string) error {
 			if baseName == "home" || baseName == "index" {
 				routePath = "/"
 			}
-			// TODO: Add support for dynamic routes based on [] syntax if needed later
 
-			routeObj := fmt.Sprintf("  { path: '%s', element: <%s /> }", routePath, componentName)
+			element := fmt.Sprintf("<%s />", componentName)
+
+			// Wrap with ProtectedRoute if available and not explicitly public (like login)
+			if hasProtection {
+				// Define public routes
+				isPublic := false
+				if baseName == "login" || baseName == "register" || strings.HasSuffix(baseName, ".public") {
+					isPublic = true
+				}
+
+				if !isPublic {
+					element = fmt.Sprintf("<ProtectedRoute><%s /></ProtectedRoute>", componentName)
+				}
+			}
+
+			routeObj := fmt.Sprintf("  { path: '%s', element: %s }", routePath, element)
 			routeObjects = append(routeObjects, routeObj)
 		}
 	}

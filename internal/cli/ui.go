@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"wodge/internal/templates"
 
 	"github.com/spf13/cobra"
@@ -77,13 +78,38 @@ func addLoginPage(appRoot string) {
 	}
 
 	fmt.Println("\nLogin Page added successfully!")
+
+	// 2. Wrap App.tsx with AuthProvider
+	appTsxPath := filepath.Join(appRoot, "src", "App.tsx")
+	if content, err := os.ReadFile(appTsxPath); err == nil {
+		sContent := string(content)
+		if !strings.Contains(sContent, "AuthProvider") {
+			// Add import
+			if !strings.Contains(sContent, "@/context/AuthProvider") {
+				sContent = "import { AuthProvider } from '@/context/AuthProvider';\n" + sContent
+			}
+			// Wrap <GeneratedRoutes />
+			// Simple heuristic: find <GeneratedRoutes /> and wrap it?
+			// Or wrap the entire content returned by App?
+			// The user requirement: "wrap the content of generated routes ... with the authprovider wrapper"
+			// Actually, wrapping GeneratedRoutes is safest to ensure context is available to all routes.
+
+			if strings.Contains(sContent, "<GeneratedRoutes />") {
+				sContent = strings.Replace(sContent, "<GeneratedRoutes />", "<AuthProvider><GeneratedRoutes /></AuthProvider>", 1)
+				if err := os.WriteFile(appTsxPath, []byte(sContent), 0644); err != nil {
+					fmt.Printf("Warning: Failed to update App.tsx automatically: %v\n", err)
+				} else {
+					fmt.Println("✓ Automatically wrapped generated routes with AuthProvider in App.tsx")
+				}
+			} else {
+				fmt.Println("Note: Could not find <GeneratedRoutes /> in App.tsx. Please manually wrap your routes with <AuthProvider>.")
+			}
+		}
+	}
+
 	fmt.Println("\nIMPORTANT NEXT STEPS:")
-	fmt.Println("1. Wrap your App in AuthProvider in `src/App.tsx`:")
-	fmt.Println("   import { AuthProvider } from '@/context/AuthProvider';")
-	fmt.Println("   function App() { return <AuthProvider>...</AuthProvider> }")
-	fmt.Println("\n2. Protect routes in `src/routes.generated.tsx` (or manually):")
-	fmt.Println("   import { ProtectedRoute } from '@/components/ProtectedRoute';")
-	fmt.Println("   { path: '/protected', element: <ProtectedRoute><YourPage /></ProtectedRoute> }")
+	fmt.Println("1. Ensure your backend AstAuth server is running.")
+	fmt.Println("2. Run `wodge run dev` - your routes (except login) should now be protected automatically!")
 }
 
 func addComponentFile(appRoot, component, path, content string) {
