@@ -527,17 +527,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Optionally verify token on mount or fetch user profile
-    // For now we just check if token exists to set minimal state
-    if (accessToken) {
-        // In real app, we might want to fetch /users/me here
-        // For simplicity, we assume token means authenticated
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('access_token');
+      if (storedToken) {
         try {
-            const storedUser = localStorage.getItem('user_profile');
-            if (storedUser) setUser(JSON.parse(storedUser));
-        } catch {}
-    }
-    setIsLoading(false);
+           const res = await auth.verify(storedToken);
+           setUser(res.user);
+           setAccessToken(storedToken); // redundant but safe
+        } catch (e) {
+           console.warn("Auth check failed, logging out:", e);
+           logout();
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, pass: string) => {
@@ -553,8 +558,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, pass: string, first: string, last: string) => {
     await auth.register(email, pass, first, last);
-    // Auto login after register? Or require login.
-    // Let's auto login for UX
     await login(email, pass);
   };
 
@@ -563,6 +566,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     localStorage.removeItem('access_token');
     localStorage.removeItem('user_profile');
+    // Optionally call server logout
   };
 
   return (

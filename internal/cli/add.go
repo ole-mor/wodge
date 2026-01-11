@@ -254,6 +254,31 @@ export const auth = {
 
   async register(email: string, password: string, firstName: string, lastName: string): Promise<any> {
     return apiPost('/auth/register', { email, password, first_name: firstName, last_name: lastName });
+  },
+  
+  async verify(token: string): Promise<any> {
+      // Pass token in header for verify
+      // For proxy, we might need to send it in body or header. 
+      // The server handler expects Authorization header.
+      // apiPost sends JSON body. We can use fetch directly or update apiPost to support headers?
+      // Actually, Wodge's apiPost uses fetch. 
+      
+      // Let's manually fetch for now to ensure headers are set correctly.
+      const { API_BASE } = await import('@/lib/wodge');
+      const res = await fetch(API_BASE + '/auth/verify', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({}) 
+      });
+      if (!res.ok) throw new Error("Verification failed");
+      return res.json();
+  },
+
+  async refreshToken(refreshToken: string): Promise<any> {
+      return apiPost('/auth/refresh', { refresh_token: refreshToken });
   }
 };
 `,
@@ -261,7 +286,7 @@ export const auth = {
 	writeFiles(appRoot, files)
 
 	// Default AstAuth URL (running locally alongside wodge)
-	updateEnvFile(appRoot, "ASTAUTH_URL", "http://localhost:8083")
+	updateEnvFile(appRoot, "ASTAUTH_URL", "http://localhost:8080")
 
 	fmt.Println("Auth client added to src/api/auth.ts")
 	fmt.Println("Added ASTAUTH_URL to .env")

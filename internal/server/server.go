@@ -101,6 +101,8 @@ func Start(port int) {
 		// Auth Routes
 		api.POST("/auth/login", handleAuthLogin)
 		api.POST("/auth/register", handleAuthRegister)
+		api.POST("/auth/refresh", handleAuthRefresh)
+		api.POST("/auth/verify", handleAuthVerify)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -471,4 +473,53 @@ func handleAuthRegister(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"status": "created"})
+}
+
+// POST /api/auth/refresh
+func handleAuthRefresh(c *gin.Context) {
+	if astAuthSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AstAuth not configured"})
+		return
+	}
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := astAuthSvc.RefreshToken(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// POST /api/auth/verify
+func handleAuthVerify(c *gin.Context) {
+	if astAuthSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AstAuth not configured"})
+		return
+	}
+
+	// Extract Bearer token from header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing Authorization header"})
+		return
+	}
+
+	// Strip "Bearer " prefix if present
+	token := authHeader
+	if len(token) > 7 && token[:7] == "Bearer " {
+		token = token[7:]
+	}
+
+	user, err := astAuthSvc.VerifyToken(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }

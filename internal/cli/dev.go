@@ -42,15 +42,13 @@ func runDev(cmd *cobra.Command, args []string) {
 	cwd, _ := os.Getwd()
 	appName := filepath.Base(cwd)
 
-	// Pick a free port
-	port := registry.GetFreePort(8080)
+	// 1. Find a free port for Wodge backend (start at 8080)
+	// If 8080 is taken (e.g., by AstAuth), it will try 8081, etc.
+	port := findAvailablePort(8080)
 
 	// Write port to wodge client file so frontend knows where to look
-	// This is a bit hacky but frontend needs to know.
-	// Actually, better: we just pass it to Vite via env var or modify wodge.ts
-	// Or even better: wodge dev updates .env (transiently) or vite config?
-	// Easiest: Update .env with PORT=...
 	updateEnvPort(cwd, port)
+	updateWodgeClient(cwd, port)
 
 	reg, err := registry.Load()
 	if err == nil {
@@ -70,11 +68,9 @@ func runDev(cmd *cobra.Command, args []string) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		// Cleanup logic is in defers, we need to manually trigger them if we exit here,
-		// but since we are blocking on viteCmd.Run() below, we might not reach here unless we architecture differently.
-		// Actually, standard Ctrl+C propagates to child processes (vite) which exit, causing viteCmd.Run() to return,
-		// allowing main function defers to run.
 	}()
+
+	// ... continue with generation and watcher ...
 
 	// 1. Generate routes initially
 	err = generator.GenerateRoutes("src")
@@ -93,11 +89,8 @@ func runDev(cmd *cobra.Command, args []string) {
 	}
 	defer watcher.Close()
 
-	// Watch src/routes for changes
-	// We need to ensure the directory exists first
 	routesDir := "src/routes"
 	if _, err := os.Stat(routesDir); os.IsNotExist(err) {
-		// Try to create it if it doesn't exist, though scaffolding should have made it
 		_ = os.MkdirAll(routesDir, 0755)
 	}
 
@@ -108,9 +101,6 @@ func runDev(cmd *cobra.Command, args []string) {
 				if !ok {
 					return
 				}
-				// We care about creating, removing, or renaming files in routes dir
-				// modifying might also change the export name if we parse it, but standard route structure relies on filename
-				// For now, let's just regenerate on any event in that folder for simplicity
 				if event.Op&fsnotify.Write == fsnotify.Write ||
 					event.Op&fsnotify.Create == fsnotify.Create ||
 					event.Op&fsnotify.Remove == fsnotify.Remove ||
@@ -138,11 +128,9 @@ func runDev(cmd *cobra.Command, args []string) {
 
 	// 3. Start Go API Server
 	fmt.Printf("Starting API server on port %d...\n", port)
-	startBackend(cwd, port) // Call the new startBackend function
+	startBackend(cwd, port)
 
 	// 4. Start Vite
-	// We assume we are in the project root, so we check for node_modules/.bin/vite
-	// or try npx vite
 	viteCmd := exec.Command("npx", "vite")
 	viteCmd.Stdout = os.Stdout
 	viteCmd.Stderr = os.Stderr
@@ -154,9 +142,36 @@ func runDev(cmd *cobra.Command, args []string) {
 	}
 }
 
+func findAvailablePort(startPort int) int {
+	port := startPort
+	for {
+		// Try to verify if port is available by attempting to listen on it
+		// This is a basic check.
+		// Actually, registry.GetFreePort does something similar?
+		// But registry.GetFreePort relies on the registry file, which might be stale.
+		// Let's do a real net check.
+		// Or simply reuse registry.GetFreePort if we trust it, but user specifically asked for "check ports starting from 8080".
+		// Let's implement a simple check.
+		cmd := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port))
+		if err := cmd.Run(); err != nil {
+			// lsof returns error if nothing found => port is free (on mac/linux usually)
+			// Wait, lsof returns 1 if no process found? Yes.
+			return port
+		}
+		// If lsof found something, port is busy
+		port++
+		if port > startPort+100 {
+			return 0 // Give up
+		}
+	}
+}
+
 func startBackend(appPath string, port int) *os.Process {
 	// Load environment variables from app's .env
 	loadEnv(appPath)
+
+	// Force PORT env var for the server to pick up
+	os.Setenv("PORT", fmt.Sprintf("%d", port))
 
 	go func() {
 		server.Start(port)
@@ -209,14 +224,10 @@ func updateEnvPort(appPath string, port int) {
 
 	// Write back
 	finalContent := strings.Join(newLines, "\n")
-	// Ensure newline at end
 	if finalContent != "" && !strings.HasSuffix(finalContent, "\n") {
 		finalContent += "\n"
 	}
 	os.WriteFile(envFile, []byte(finalContent), 0644)
-
-	// Also need to update src/lib/wodge.ts because it hardcodes localhost:8080!
-	updateWodgeClient(appPath, port)
 }
 
 func updateWodgeClient(appPath string, port int) {
