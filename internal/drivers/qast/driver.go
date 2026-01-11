@@ -172,13 +172,18 @@ type secureChatResponse struct {
 	TokenMap    map[string]string `json:"token_map"`
 }
 
+type secureChatRequest struct {
+	Text   string `json:"text"`
+	UserID string `json:"user_id"`
+}
+
 func (q *QastDriver) SecureChat(ctx context.Context, text, userId string) (string, map[string]string, error) {
 	if q == nil || q.httpClient == nil {
 		return "", nil, fmt.Errorf("qast driver is nil")
 	}
 
-	reqBody := composerRequest{
-		Query:  text,
+	reqBody := secureChatRequest{
+		Text:   text,
 		UserID: userId,
 	}
 
