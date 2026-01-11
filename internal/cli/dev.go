@@ -230,7 +230,7 @@ func updateWodgeClient(appPath string, port int) {
 	lines := strings.Split(strContent, "\n")
 	for i, line := range lines {
 		if strings.Contains(line, "const API_BASE =") {
-			lines[i] = fmt.Sprintf("const API_BASE = 'http://localhost:%d/api';", port)
+			lines[i] = fmt.Sprintf("export const API_BASE = 'http://localhost:%d/api';", port)
 			break
 		}
 	}
