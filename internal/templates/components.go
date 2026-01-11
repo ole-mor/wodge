@@ -419,9 +419,12 @@ export function SecureChat() {
           {isLoading && (
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-xs text-muted-foreground flex items-center gap-2">
-                 <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                 <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                 <div className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                 <span>Securely processing</span>
+                 <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                 </div>
                </div>
              </motion.div>
           )}
@@ -433,8 +436,8 @@ export function SecureChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message safely..."
-            className="flex-1"
+            placeholder={isLoading ? "Waiting for secure response..." : "Type a message safely..."}
+            className="flex-1 transition-all"
             disabled={isLoading}
           />
           <Button 
