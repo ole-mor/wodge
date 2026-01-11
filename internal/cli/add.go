@@ -66,6 +66,8 @@ func runAddAPI(cmd *cobra.Command, args []string) {
 		addRabbitMQClient(appRoot)
 	case "qast":
 		addQastClient(appRoot)
+	case "auth", "astauth":
+		addAuthClient(appRoot)
 	case "health":
 		addHealthRoute(appRoot)
 	default:
@@ -237,6 +239,33 @@ export const rabbitmq = {
 	fmt.Println("Added RABBITMQ_URL to .env")
 	fmt.Println("\nTip: Run RabbitMQ locally with Docker:")
 	fmt.Println("  docker run --name rabbitmq -p 5672:5672 -d rabbitmq")
+	fmt.Println("  docker run --name rabbitmq -p 5672:5672 -d rabbitmq")
+}
+
+func addAuthClient(appRoot string) {
+	fmt.Println("Adding AstAuth Client...")
+	files := map[string]string{
+		"src/api/auth.ts": `import { apiPost } from '@/lib/wodge';
+
+export const auth = {
+  async login(email: string, password: string): Promise<any> {
+    return apiPost('/auth/login', { email, password });
+  },
+
+  async register(email: string, password: string, firstName: string, lastName: string): Promise<any> {
+    return apiPost('/auth/register', { email, password, first_name: firstName, last_name: lastName });
+  }
+};
+`,
+	}
+	writeFiles(appRoot, files)
+
+	// Default AstAuth URL (running locally alongside wodge)
+	updateEnvFile(appRoot, "ASTAUTH_URL", "http://localhost:8083")
+
+	fmt.Println("Auth client added to src/api/auth.ts")
+	fmt.Println("Added ASTAUTH_URL to .env")
+	fmt.Println("Make sure AstAuth service is running on specified URL!")
 }
 
 func addQastClient(appRoot string) {

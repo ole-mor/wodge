@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"wodge/internal/drivers/astauth"
 	"wodge/internal/drivers/postgres"
 	"wodge/internal/drivers/qast"
 	"wodge/internal/drivers/rabbitmq"
@@ -20,10 +21,11 @@ import (
 
 // Global services
 var (
-	db      services.DatabaseService
-	cache   services.CacheService
-	queue   services.QueueService
-	qastSvc services.QastService
+	db         services.DatabaseService
+	cache      services.CacheService
+	queue      services.QueueService
+	qastSvc    services.QastService
+	astAuthSvc *astauth.AstAuthDriver
 )
 
 // Start starts the Wodge API server
@@ -95,6 +97,10 @@ func Start(port int) {
 		api.POST("/qast/ingest", handleQastIngest)
 		api.POST("/qast/ingest/async", handleQastIngestAsync)
 		api.POST("/qast/chat", handleQastSecureChat)
+
+		// Auth Routes
+		api.POST("/auth/login", handleAuthLogin)
+		api.POST("/auth/register", handleAuthRegister)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -161,6 +167,15 @@ func initServices() {
 		log.Println("QAST driver initialized")
 	} else {
 		log.Println("QAST_URL is empty, skipping QAST init")
+	}
+
+	// AstAuth
+	astAuthURL := os.Getenv("ASTAUTH_URL")
+	if astAuthURL != "" {
+		astAuthSvc = astauth.NewAstAuthDriver(astAuthURL)
+		log.Println("AstAuth driver initialized")
+	} else {
+		log.Println("ASTAUTH_URL is empty, skipping AstAuth init")
 	}
 }
 
@@ -396,16 +411,64 @@ func handleQastSecureChat(c *gin.Context) {
 		n, err := stream.Read(buf)
 		if n > 0 {
 			if _, wErr := c.Writer.Write(buf[:n]); wErr != nil {
-				log.Printf("Streaming write error: %v", wErr)
+				log.Printf("[Wodge] Streaming write error: %v", wErr)
 				return // Client disconnected
 			}
 			c.Writer.Flush()
 		}
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("Streaming read error: %v", err)
+				log.Printf("[Wodge] Streaming read error: %v", err)
 			}
 			break
 		}
 	}
+}
+
+// -- AstAuth Handlers --
+
+// POST /api/auth/login
+func handleAuthLogin(c *gin.Context) {
+	if astAuthSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AstAuth not configured"})
+		return
+	}
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := astAuthSvc.Login(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// POST /api/auth/register
+func handleAuthRegister(c *gin.Context) {
+	if astAuthSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AstAuth not configured"})
+		return
+	}
+	var req struct {
+		Email     string `json:"email"`
+		Password  string `json:"password"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	err := astAuthSvc.Register(c.Request.Context(), req.Email, req.Password, req.FirstName, req.LastName)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"status": "created"})
 }
