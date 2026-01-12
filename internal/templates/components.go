@@ -340,9 +340,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
-  content: string; // This is the displayed content (rehydrated)
-  isSanitized?: boolean; // If true, it was processed securely
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  isSanitized?: boolean;
+  isKnowledgeUpdate?: boolean;
 }
 
 export function SecureChat() {
@@ -372,12 +373,11 @@ export function SecureChat() {
     setIsLoading(true);
     setLoadingStatus("Securely processing...");
 
-    // Preliminary empty bot message to fill
     const botMsgId = (Date.now() + 1).toString();
     const botMsg: Message = {
       id: botMsgId,
       role: 'assistant',
-      content: '', // Will stream in
+      content: '',
       isSanitized: true
     };
     setMessages(prev => [...prev, botMsg]);
@@ -391,9 +391,37 @@ export function SecureChat() {
             } else if (event.type === 'token_map') {
                 TokenManager.saveMap(event.data);
                 console.log("SecureChat: Updated Token Map", event.data);
+            } else if (event.type === 'updated_context') {
+                // Knowledge extraction completed
+                const graph = event.data;
+                const factCount = (graph.facts || []).length;
+                const entityCount = (graph.entities || []).length;
+                
+                if (factCount > 0 || entityCount > 0) {
+                    const knowledgeMsg: Message = {
+                        id: Date.now().toString() + '-knowledge',
+                        role: 'system',
+                        content: '✓ Learned ' + factCount + ' new fact' + (factCount !== 1 ? 's' : '') + ' and ' + entityCount + ' entit' + (entityCount !== 1 ? 'ies' : 'y'),
+                        isKnowledgeUpdate: true
+                    };
+                    setMessages(prev => [...prev, knowledgeMsg]);
+                }
+            } else if (event.type === 'token_definitions') {
+                // Server sent additional token definitions (from RAG context)
+                TokenManager.saveMap(event.data);
+                console.log("SecureChat: Merged Token Definitions", event.data);
+                
+                // Re-hydrate the current bot message with new definitions
+                setMessages(prev => prev.map(m => {
+                    if (m.id === botMsgId) {
+                        return { ...m, content: TokenManager.rehydrate(currentContent) };
+                    }
+                    return m;
+                }));
+            } else if (event.type === 'context_sources') {
+                // Optionally log RAG sources
+                console.log("SecureChat: Context Sources", event.data);
             } else if (event.type === 'chunk') {
-                // Accumulate and rehydrate on every chunk
-                // console.log("SecureChat Chunk Rx:", event.data); // DEBUG: Uncomment if needed
                 currentContent += event.data;
                 const rehydrated = TokenManager.rehydrate(currentContent);
                 
@@ -402,7 +430,6 @@ export function SecureChat() {
                 ));
             } else if (event.type === 'error') {
                 console.error("Stream Error:", event.data);
-                // Optionally show error in chat?
             }
         });
 
@@ -426,13 +453,12 @@ export function SecureChat() {
         <CardTitle className="flex items-center gap-2">
           <span>Secure Chat</span>
           <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
-            End-to-End Privacy
+            Dual-Agent Pipeline
           </span>
         </CardTitle>
       </CardHeader>
       
       <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
-        {/* Messages Port */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
           <AnimatePresence initial={false}>
             {messages.map(msg => (
@@ -440,22 +466,32 @@ export function SecureChat() {
                 key={msg.id}
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className={"flex w-full " + (msg.role === 'user' ? 'justify-end' : 'justify-start')}
+                className={"flex w-full " + (
+                  msg.role === 'user' ? 'justify-end' : 
+                  msg.role === 'system' ? 'justify-center' : 
+                  'justify-start'
+                )}
               >
-                <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm " + 
-                  (msg.role === 'user' 
-                    ? 'bg-primary text-primary-foreground rounded-br-none' 
-                    : 'bg-muted text-foreground rounded-bl-none border border-border/50')
-                }>
-                  {msg.content}
-                   {/* Verification Badge for Assistant */}
-                   {msg.role === 'assistant' && msg.isSanitized && (
-                    <div className="mt-2 text-[10px] opacity-70 flex items-center gap-1">
+                {msg.role === 'system' ? (
+                  <div className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 text-xs border border-blue-500/20 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    {msg.content}
+                  </div>
+                ) : (
+                  <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm " + 
+                    (msg.role === 'user' 
+                      ? 'bg-primary text-primary-foreground rounded-br-none' 
+                      : 'bg-muted text-foreground rounded-bl-none border border-border/50')
+                  }>
+                    {msg.content}
+                    {msg.role === 'assistant' && msg.isSanitized && (
+                      <div className="mt-2 text-[10px] opacity-70 flex items-center gap-1">
                         <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                         <span>PII Rehydrated locally</span>
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -474,7 +510,6 @@ export function SecureChat() {
           )}
         </div>
 
-        {/* Input Area */}
         <div className="p-4 bg-background border-t border-border/50 flex gap-2">
           <Input 
             value={input}

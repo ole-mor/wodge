@@ -13,7 +13,7 @@ import (
 var uiCmd = &cobra.Command{
 	Use:   "ui [component]",
 	Short: "Add a UI component to your project",
-	Long:  `Add a UI component to your project. Available components: button, card, input, navbar, theme-provider, qast-test, secure-chat, token-manager`,
+	Long:  `Add a UI component to your project. Available components: button, card, input, navbar, theme-provider, qast-test, secure-chat (llm-chat), token-manager`,
 	Args:  cobra.ExactArgs(1),
 	Run:   addUIComponent,
 }
@@ -41,13 +41,13 @@ func addUIComponent(cmd *cobra.Command, args []string) {
 		addComponentFile(appRoot, "qast-test", "src/components/ui/QastTest.tsx", templates.ComponentQastTest)
 	case "token-manager":
 		addComponentFile(appRoot, "token-manager", "src/utils/TokenManager.ts", templates.ComponentTokenManager)
-	case "secure-chat":
+	case "secure-chat", "llm-chat":
 		addSecureChatComponent(appRoot)
 	case "login":
 		addLoginPage(appRoot)
 	default:
 		fmt.Printf("Unknown component/page: %s\n", componentName)
-		fmt.Println("Available components: button, card, input, navbar, qast-test, secure-chat, login")
+		fmt.Println("Available components: button, card, input, navbar, qast-test, secure-chat (llm-chat), login")
 		os.Exit(1)
 	}
 }

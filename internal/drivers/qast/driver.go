@@ -195,7 +195,7 @@ func (q *QastDriver) SecureChat(ctx context.Context, text, userId string) (io.Re
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/v1/privacy/chat", q.baseURL)
+	url := fmt.Sprintf("%s/api/v1/pipeline/chat", q.baseURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
