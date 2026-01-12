@@ -422,7 +422,9 @@ export function SecureChat() {
                 // Optionally log RAG sources
                 console.log("SecureChat: Context Sources", event.data);
             } else if (event.type === 'chunk') {
-                currentContent += event.data;
+                const chunkData = String(event.data);
+                const prefix = (currentContent && !currentContent.endsWith(' ') && !chunkData.startsWith(' ')) ? ' ' : '';
+                currentContent += prefix + chunkData;
                 const rehydrated = TokenManager.rehydrate(currentContent);
                 
                 setMessages(prev => prev.map(m => 
@@ -478,7 +480,7 @@ export function SecureChat() {
                     {msg.content}
                   </div>
                 ) : (
-                  <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm " + 
+                  <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap " + 
                     (msg.role === 'user' 
                       ? 'bg-primary text-primary-foreground rounded-br-none' 
                       : 'bg-muted text-foreground rounded-bl-none border border-border/50')

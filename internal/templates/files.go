@@ -324,10 +324,9 @@ export async function sseStream(
       for (const line of lines) {
         if (line.startsWith('event:')) {
             eventType = line.substring(6).trim(); 
-        } else if (line.startsWith('data: ')) {
-            data = line.substring(6);
         } else if (line.startsWith('data:')) {
-            data = line.substring(5);
+            const raw = line.substring(5);
+            data = raw.startsWith(' ') ? raw.substring(1) : raw;
         }
       }
       
