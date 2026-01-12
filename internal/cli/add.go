@@ -340,21 +340,36 @@ export const qast = {
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
       
-      // Parse SSE lines
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() || ''; // Keep incomplete part
+      // Parse SSE events - split by double newline
+      const messages = buffer.split('\n\n');
+      buffer = messages.pop() || ''; // Keep incomplete part
       
-      for (const line of lines) {
-        const typeMatch = line.match(/^event: (.+)$/m);
-        const dataMatch = line.match(/^data: (.+)$/m);
+      for (const msg of messages) {
+        if (!msg.trim()) continue;
         
-        if (typeMatch && dataMatch) {
-           let data = dataMatch[1];
+        const lines = msg.split('\n');
+        let eventType = 'message';
+        let data = '';
+
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            eventType = line.substring(6).trim();
+          } else if (line.startsWith('data: ')) {
+            data = line.substring(6);
+          } else if (line.startsWith('data:')) {
+            data = line.substring(5);
+          }
+        }
+        
+        if (data || eventType === 'done') {
+           let parsedData = data;
            try {
-               data = JSON.parse(data);
-           } catch { /* pass raw string if not json */ }
+               parsedData = JSON.parse(data);
+           } catch { 
+               // keep raw string
+           }
            
-           onEvent({ type: typeMatch[1], data });
+           onEvent({ type: eventType, data: parsedData });
         }
       }
     }

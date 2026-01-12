@@ -314,7 +314,7 @@ export async function sseStream(
     const messages = buffer.split('\n\n');
     buffer = messages.pop() || ''; // Keep incomplete part
     
-    for (const msg of messages) {
+      for (const msg of messages) {
       if (!msg.trim()) continue;
       
       const lines = msg.split('\n');
@@ -322,28 +322,12 @@ export async function sseStream(
       let data = '';
 
       for (const line of lines) {
-        // Relaxed parsing: Check for prefix with or without space
         if (line.startsWith('event:')) {
             eventType = line.substring(6).trim(); 
+        } else if (line.startsWith('data: ')) {
+            data = line.substring(6);
         } else if (line.startsWith('data:')) {
-            // Strict parsing with spacing consideration:
-            // "data: A" -> "A"
-            // "data:A"  -> "A"
-            // "data:  A" -> " A"
-            // "data:"   -> ""
-            
-            let rawContent = line.substring(5); // Remove "data:"
-            if (rawContent.startsWith(' ')) {
-                // Heuristic: If we are in "raw string" mode (chunks), we want to PRESERVE the first space 
-                // ONLY IF it seems to be part of the content. 
-                // Standard SSE removes the first space.
-                // But our custom parser logic shown in test-app20 found that just using the raw content worked best for "data: chunk".
-                data = rawContent; 
-                // Note: Standard spec removes 1 space. If we rely on standard spec strictness, we might lose spaces.
-                // For now, we use the logic that worked in debugging.
-            } else {
-                data = rawContent;
-            }
+            data = line.substring(5);
         }
       }
       
