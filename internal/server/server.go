@@ -398,6 +398,7 @@ func handleQastSecureChat(c *gin.Context) {
 	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 		token = authHeader[7:]
 	}
+	log.Printf("[Wodge Server] SecureChat Auth: HeaderLen=%d, TokenLen=%d", len(authHeader), len(token))
 
 	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID, token)
 	if err != nil {
