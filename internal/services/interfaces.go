@@ -29,5 +29,5 @@ type QueueService interface {
 type QastService interface {
 	Ask(ctx context.Context, query, userId, expertise string) (string, []string, error)
 	IngestGraph(ctx context.Context, text, userId string) (interface{}, error)
-	SecureChat(ctx context.Context, text, userId string) (io.ReadCloser, error)
+	SecureChat(ctx context.Context, text, userId, token string) (io.ReadCloser, error)
 }

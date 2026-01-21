@@ -180,7 +180,7 @@ type secureChatRequest struct {
 }
 
 // SecureChat now returns a ReadCloser for the SSE stream
-func (q *QastDriver) SecureChat(ctx context.Context, text, userId string) (io.ReadCloser, error) {
+func (q *QastDriver) SecureChat(ctx context.Context, text, userId, token string) (io.ReadCloser, error) {
 	if q == nil || q.httpClient == nil {
 		return nil, fmt.Errorf("qast driver is nil")
 	}
@@ -201,7 +201,9 @@ func (q *QastDriver) SecureChat(ctx context.Context, text, userId string) (io.Re
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if q.apiKey != "" {
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	} else if q.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+q.apiKey)
 	}
 

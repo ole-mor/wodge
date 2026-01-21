@@ -337,6 +337,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { qast } from '@/api/qast';
 import { TokenManager } from '@/utils/TokenManager'; 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/context/AuthProvider'; // Added useAuth
 
 interface Message {
   id: string;
@@ -347,6 +348,7 @@ interface Message {
 }
 
 export function SecureChat() {
+  const { user } = useAuth(); // Get logged in user
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -358,6 +360,25 @@ export function SecureChat() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, loadingStatus]);
+
+  // Helper to inject user identity into token maps
+  const injectIdentity = (map: Record<string, string>) => {
+      if (!user) return map;
+      const selfToken = '[' + user.id + '_SELF]';
+      const newMap = { ...map };
+      
+      // 1. Ensure the raw self-token maps to username
+      newMap[selfToken] = user.username;
+
+      // 2. Check if any value in the map points to selfToken (e.g. [E-1] -> [UUID_SELF])
+      // If so, remap it directly to username
+      for (const [key, val] of Object.entries(newMap)) {
+          if (val === selfToken) {
+              newMap[key] = user.username;
+          }
+      }
+      return newMap;
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -389,8 +410,9 @@ export function SecureChat() {
             if (event.type === 'status') {
                 setLoadingStatus(event.data);
             } else if (event.type === 'token_map') {
-                TokenManager.saveMap(event.data);
-                console.log("SecureChat: Updated Token Map", event.data);
+                const mapWithIdentity = injectIdentity(event.data);
+                TokenManager.saveMap(mapWithIdentity);
+                console.log("SecureChat: Updated Token Map", mapWithIdentity);
             } else if (event.type === 'updated_context') {
                 // Knowledge extraction completed
                 const graph = event.data;
@@ -408,8 +430,9 @@ export function SecureChat() {
                 }
             } else if (event.type === 'token_definitions') {
                 // Server sent additional token definitions (from RAG context)
-                TokenManager.saveMap(event.data);
-                console.log("SecureChat: Merged Token Definitions", event.data);
+                const mapWithIdentity = injectIdentity(event.data);
+                TokenManager.saveMap(mapWithIdentity);
+                console.log("SecureChat: Merged Token Definitions", mapWithIdentity);
                 
                 // Re-hydrate the current bot message with new definitions
                 setMessages(prev => prev.map(m => {

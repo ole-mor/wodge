@@ -103,6 +103,7 @@ func Start(port int) {
 		api.POST("/auth/register", handleAuthRegister)
 		api.POST("/auth/refresh", handleAuthRefresh)
 		api.POST("/auth/verify", handleAuthVerify)
+		api.GET("/users/me", handleAuthVerify) // Alias for verify
 		api.POST("/auth/logout", handleAuthLogout)
 	}
 
@@ -391,7 +392,14 @@ func handleQastSecureChat(c *gin.Context) {
 		return
 	}
 
-	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID)
+	// Extract Bearer token from header
+	token := ""
+	authHeader := c.GetHeader("Authorization")
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		token = authHeader[7:]
+	}
+
+	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID, token)
 	if err != nil {
 		log.Printf("[Wodge] SecureChat failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

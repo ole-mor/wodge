@@ -264,24 +264,18 @@ export const auth = {
   },
   
   async verify(token: string): Promise<any> {
-      // Pass token in header for verify
-      // For proxy, we might need to send it in body or header. 
-      // The server handler expects Authorization header.
-      // apiPost sends JSON body. We can use fetch directly or update apiPost to support headers?
-      // Actually, Wodge's apiPost uses fetch. 
-      
-      // Let's manually fetch for now to ensure headers are set correctly.
+      // Fetch user profile to verify token validity
       const { API_BASE } = await import('@/lib/wodge');
-      const res = await fetch(API_BASE + '/auth/verify', {
-        method: 'POST',
+      const res = await fetch(API_BASE + '/users/me', {
+        method: 'GET',
         headers: { 
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify({}) 
+        }
       });
       if (!res.ok) throw new Error("Verification failed");
-      return res.json();
+      const user = await res.json();
+      return { user }; // Wrap in object to match expected structure if needed, or return user directly depending on usage
   },
 
   async refreshToken(refreshToken: string): Promise<any> {
@@ -317,9 +311,14 @@ export const qast = {
   // Secure PII Chat with Streaming (SSE)
   // Calls onEvent with { type: 'status' | 'token_map' | 'chunk' | 'done', data: any }
   async chatStream(text: string, onEvent: (event: { type: string; data: any }) => void, userId: string = "default-user"): Promise<void> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('access_token');
+        headers['Authorization'] = ` + "`" + `Bearer ${token}` + "`" + `;
+    }
+
     const response = await fetch(API_BASE + '/qast/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ text, user_id: userId }),
     });
 
