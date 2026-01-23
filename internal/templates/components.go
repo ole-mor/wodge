@@ -338,6 +338,7 @@ import { qast } from '@/api/qast';
 import { TokenManager } from '@/utils/TokenManager'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthProvider'; // Added useAuth
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -473,84 +474,86 @@ export function SecureChat() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col border-2 border-border/50 shadow-xl">
-      <CardHeader className="border-b border-border/50 bg-muted/20">
-        <CardTitle className="flex items-center gap-2">
-          <span>Secure Chat</span>
-          <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
-            Dual-Agent Pipeline
-          </span>
-        </CardTitle>
-      </CardHeader>
-      
+    <Card className="w-full h-full flex flex-col border-none shadow-none rounded-none bg-transparent">
       <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
-          <AnimatePresence initial={false}>
-            {messages.map(msg => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                className={"flex w-full " + (
-                  msg.role === 'user' ? 'justify-end' : 
-                  msg.role === 'system' ? 'justify-center' : 
-                  'justify-start'
-                )}
-              >
-                {msg.role === 'system' ? (
-                  <div className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 text-xs border border-blue-500/20 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                    {msg.content}
-                  </div>
-                ) : (
-                  <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap " + 
-                    (msg.role === 'user' 
-                      ? 'bg-primary text-primary-foreground rounded-br-none' 
-                      : 'bg-muted text-foreground rounded-bl-none border border-border/50')
-                  }>
-                    {msg.content}
-                    {msg.role === 'assistant' && msg.isSanitized && (
-                      <div className="mt-2 text-[10px] opacity-70 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                        <span>PII Rehydrated locally</span>
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col" ref={scrollRef}>
+          <div className="mt-auto space-y-4 w-full">
+            <AnimatePresence initial={false}>
+              {messages.map(msg => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  className={"flex w-full " + (
+                    msg.role === 'user' ? 'justify-end' : 
+                    msg.role === 'system' ? 'justify-center' : 
+                    'justify-start'
+                  )}
+                >
+                  {msg.role === 'system' ? (
+                    <div className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 text-xs border border-blue-500/20 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                      {msg.content}
+                    </div>
+                  ) : (
+                    <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm " + 
+                      (msg.role === 'user' 
+                        ? 'bg-primary text-primary-foreground rounded-br-none' 
+                        : 'bg-muted text-foreground rounded-bl-none border border-border/50')
+                    }>
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>
+                          {msg.content}
+                        </ReactMarkdown>
                       </div>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          
-          {isLoading && (
-             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-               <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-xs text-muted-foreground flex items-center gap-2">
-                 <span>{loadingStatus || "Securely processing"}</span>
-                 <div className="flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      {msg.role === 'assistant' && msg.isSanitized && (
+                        <div className="mt-2 text-[10px] opacity-70 flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                          <span>PII Rehydrated locally</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            
+            {isLoading && (
+               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                 <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-xs text-muted-foreground flex items-center gap-2">
+                   <span>{loadingStatus || "Securely processing"}</span>
+                   <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                   </div>
                  </div>
-               </div>
-             </motion.div>
-          )}
+               </motion.div>
+            )}
+          </div>
         </div>
 
-        <div className="p-4 bg-background border-t border-border/50 flex gap-2">
-          <Input 
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder={isLoading ? "Waiting for secure response..." : "Type a message safely..."}
-            className="flex-1 transition-all"
-            disabled={isLoading}
-          />
-          <Button 
-            onClick={handleSend} 
-            disabled={isLoading || !input.trim()}
-            variant="primary"
-          >
-            Send
-          </Button>
+        <div className="p-4 bg-background/50 backdrop-blur border-t border-border/50 flex gap-2">
+          <div className="flex-1 relative">
+            <Input 
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              placeholder={isLoading ? "Waiting for secure response..." : "Type a message safely..."}
+              className="w-full pr-20 py-6 text-base shadow-sm border-border/50 focus-visible:ring-primary/20"
+              disabled={isLoading}
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <Button 
+                onClick={handleSend} 
+                disabled={isLoading || !input.trim()}
+                size="sm"
+                className="h-8"
+              >
+                Send
+              </Button>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -863,6 +866,140 @@ export default function LoginPage() {
       <div className="fixed inset-0 -z-10 pointer-events-none">
           <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-[120px] rounded-full translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-blue-500/5 blur-[100px] rounded-full -translate-x-1/2 translate-y-1/2" />
+      </div>
+    </div>
+  );
+}
+`
+
+const ComponentSidebar = `import React from 'react';
+import { Button } from '@/components/ui/Button';
+import { motion, AnimatePresence } from 'framer-motion';
+import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
+import { useAuth } from '@/context/AuthProvider';
+import { useNavigate } from 'react-router-dom';
+import MenuIcon from '@mui/icons-material/Menu';
+import AddIcon from '@mui/icons-material/Add';
+import HistoryIcon from '@mui/icons-material/History';
+import SettingsIcon from '@mui/icons-material/Settings';
+import LogoutIcon from '@mui/icons-material/Logout';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+
+interface SidebarProps {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+}
+
+
+export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/login');
+    };
+
+    const sidebarVariants = {
+        open: { width: "16rem", opacity: 1, x: 0 },
+        closed: { width: 0, opacity: 0, x: -50 }
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial="closed"
+                    animate="open"
+                    exit="closed"
+                    variants={sidebarVariants}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="flex-col bg-muted/40 border-r border-border/50 h-full overflow-hidden"
+                >
+                    <div className="p-4 border-b border-border/50 flex items-center justify-end min-w-[16rem]">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setIsOpen(false)}>
+                            <KeyboardDoubleArrowLeftIcon fontSize="small" />
+                        </Button>
+                    </div>
+
+                    <div className="flex flex-col h-[calc(100%-4rem)] min-w-[16rem]"> {/* Wrapper for consistent width content */}
+                        <div className="p-4 space-y-2">
+                            <Button variant="secondary" className="w-full justify-start gap-2 shadow-sm border border-border/50 bg-background hover:bg-muted/80">
+                                <AddIcon fontSize="small" />
+                                <span>New Chat</span>
+                            </Button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto px-4 py-2">
+                            <div className="text-xs font-semibold text-muted-foreground mb-3 px-2 uppercase tracking-wider">History</div>
+                            <div className="space-y-1">
+                                {[1, 2, 3].map(i => (
+                                    <Button key={i} variant="ghost" className="w-full justify-start text-sm font-normal text-muted-foreground hover:text-foreground h-auto py-2">
+                                        <HistoryIcon fontSize="small" className="mr-2 opacity-70" />
+                                        <span className="truncate">Previous Session {i}</span>
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="p-4 border-t border-border/50 bg-muted/20">
+                            {user && (
+                                <div className="flex items-center gap-3 mb-4 px-2">
+                                    <div className="h-8 w-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs ring-2 ring-background shadow-sm">
+                                        {user.username?.[0]?.toUpperCase() || 'U'}
+                                    </div>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="text-sm font-medium truncate">{user.username}</div>
+                                        <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-1">
+                                <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                                    <SettingsIcon fontSize="small" />
+                                    <span>Settings</span>
+                                </Button>
+                                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+                                    <LogoutIcon fontSize="small" />
+                                    <span>Log Out</span>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
+`
+
+const ComponentLLMWrapper = `import React, { useState } from 'react';
+import { SecureChat } from '@/components/ui/SecureChat';
+import { Button } from '@/components/ui/Button';
+import { Sidebar } from '@/components/ui/Sidebar';
+import MenuIcon from '@mui/icons-material/Menu';
+
+export function LLMLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  return (
+    <div className="flex h-full bg-background overflow-hidden">
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-full relative">
+        {/* Toggle Sidebar Button (visible when closed or on mobile) */}
+        {!sidebarOpen && (
+          <div className="absolute top-4 left-4 z-50">
+            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)} className="bg-background/80 backdrop-blur border border-border/50 shadow-sm rounded-full w-10 h-10 p-0">
+              <MenuIcon />
+            </Button>
+          </div>
+        )}
+
+        <div className="flex-1 p-0 md:p-6 lg:p-10 flex flex-col max-w-6xl mx-auto w-full h-full">
+          <SecureChat />
+        </div>
       </div>
     </div>
   );

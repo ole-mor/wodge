@@ -41,13 +41,17 @@ func addUIComponent(cmd *cobra.Command, args []string) {
 		addComponentFile(appRoot, "qast-test", "src/components/ui/QastTest.tsx", templates.ComponentQastTest)
 	case "token-manager":
 		addComponentFile(appRoot, "token-manager", "src/utils/TokenManager.ts", templates.ComponentTokenManager)
+	case "sidebar":
+		addComponentFile(appRoot, "sidebar", "src/components/ui/Sidebar.tsx", templates.ComponentSidebar)
 	case "secure-chat", "llm-chat":
 		addSecureChatComponent(appRoot)
+	case "llmwrapper":
+		addLLMWrapperComponent(appRoot)
 	case "login":
 		addLoginPage(appRoot)
 	default:
 		fmt.Printf("Unknown component/page: %s\n", componentName)
-		fmt.Println("Available components: button, card, input, navbar, qast-test, secure-chat (llm-chat), login")
+		fmt.Println("Available components: button, card, input, navbar, qast-test, secure-chat (llm-chat), login, llmwrapper")
 		os.Exit(1)
 	}
 }
@@ -144,4 +148,24 @@ func addSecureChatComponent(appRoot string) {
 
 	// Add the Chat component
 	addComponentFile(appRoot, "secure-chat", "src/components/ui/SecureChat.tsx", templates.ComponentSecureChat)
+}
+
+func addLLMWrapperComponent(appRoot string) {
+	fmt.Println("Adding LLMWrapper Component and Dependencies...")
+
+	// 1. Ensure Dependencies exist
+	addComponentFile(appRoot, "button", "src/components/ui/Button.tsx", templates.ComponentButton)
+	addComponentFile(appRoot, "sidebar", "src/components/ui/Sidebar.tsx", templates.ComponentSidebar)
+
+	// LLMWrapper relies on AuthContext, ensure it is set up or assume it exists if user adds this?
+	// Best practice: Ensure generic UI components exist, but AuthContext is usually added via 'wodge add ui login'.
+	// We will warn if missing, or just add the wrapper file.
+	// It basically needs SecureChat.
+	addSecureChatComponent(appRoot)
+
+	// 2. Add the Layout
+	addComponentFile(appRoot, "llm-layout", "src/components/layout/LLMLayout.tsx", templates.ComponentLLMWrapper)
+
+	fmt.Println("\nLLMLayout added successfully!")
+	fmt.Println("Usage: Import LLMLayout and use it as a wrapper for your routes or as a standalone page.")
 }
