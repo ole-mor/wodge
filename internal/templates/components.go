@@ -333,11 +333,11 @@ export const TokenManager = {
 const ComponentSecureChat = `import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { qast } from '@/api/qast';
-import { TokenManager } from '@/utils/TokenManager'; 
+import { TokenManager } from '@/utils/TokenManager';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/context/AuthProvider'; // Added useAuth
+import { useAuth } from '@/context/AuthProvider';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -349,7 +349,7 @@ interface Message {
 }
 
 export function SecureChat() {
-  const { user } = useAuth(); // Get logged in user
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -364,21 +364,32 @@ export function SecureChat() {
 
   // Helper to inject user identity into token maps
   const injectIdentity = (map: Record<string, string>) => {
-      if (!user) return map;
-      const selfToken = '[' + user.id + '_SELF]';
-      const newMap = { ...map };
-      
-      // 1. Ensure the raw self-token maps to username
-      newMap[selfToken] = user.username;
+    if (!user) return map;
+    // Fallback display name if username is missing
+    const displayName = user.username || user.email || "You";
 
-      // 2. Check if any value in the map points to selfToken (e.g. [E-1] -> [UUID_SELF])
-      // If so, remap it directly to username
-      for (const [key, val] of Object.entries(newMap)) {
-          if (val === selfToken) {
-              newMap[key] = user.username;
-          }
+    // Patterns to match user-related tokens
+    const selfPattern = user.id + "_SELF";
+    const possSelfPattern = user.id + "_POSS_SELF";
+
+    const newMap = { ...map };
+
+    // Add direct mappings
+    newMap['[' + selfPattern + ']'] = displayName;
+    newMap['[' + possSelfPattern + ']'] = "your"; // Possessive form
+
+    // Check if any value contains user patterns and resolve them
+    for (const [key, val] of Object.entries(newMap)) {
+      if (typeof val === 'string') {
+        if (val.includes(possSelfPattern)) {
+          newMap[key] = "your";
+        } else if (val.includes(selfPattern)) {
+          newMap[key] = displayName;
+        }
       }
-      return newMap;
+    }
+
+    return newMap;
   };
 
   const handleSend = async () => {
@@ -405,66 +416,86 @@ export function SecureChat() {
     setMessages(prev => [...prev, botMsg]);
 
     try {
-        let currentContent = "";
+      let currentContent = "";
 
-        await qast.chatStream(userMsg.content, (event) => {
-            if (event.type === 'status') {
-                setLoadingStatus(event.data);
-            } else if (event.type === 'token_map') {
-                const mapWithIdentity = injectIdentity(event.data);
-                TokenManager.saveMap(mapWithIdentity);
-                console.log("SecureChat: Updated Token Map", mapWithIdentity);
-            } else if (event.type === 'updated_context') {
-                // Knowledge extraction completed
-                const graph = event.data;
-                const factCount = (graph.facts || []).length;
-                const entityCount = (graph.entities || []).length;
-                
-                if (factCount > 0 || entityCount > 0) {
-                    const knowledgeMsg: Message = {
-                        id: Date.now().toString() + '-knowledge',
-                        role: 'system',
-                        content: '✓ Learned ' + factCount + ' new fact' + (factCount !== 1 ? 's' : '') + ' and ' + entityCount + ' entit' + (entityCount !== 1 ? 'ies' : 'y'),
-                        isKnowledgeUpdate: true
-                    };
-                    setMessages(prev => [...prev, knowledgeMsg]);
-                }
-            } else if (event.type === 'token_definitions') {
-                // Server sent additional token definitions (from RAG context)
-                const mapWithIdentity = injectIdentity(event.data);
-                TokenManager.saveMap(mapWithIdentity);
-                console.log("SecureChat: Merged Token Definitions", mapWithIdentity);
-                
-                // Re-hydrate the current bot message with new definitions
-                setMessages(prev => prev.map(m => {
-                    if (m.id === botMsgId) {
-                        return { ...m, content: TokenManager.rehydrate(currentContent) };
-                    }
-                    return m;
-                }));
-            } else if (event.type === 'context_sources') {
-                // Optionally log RAG sources
-                console.log("SecureChat: Context Sources", event.data);
-            } else if (event.type === 'chunk') {
-                const chunkData = String(event.data);
-                const prefix = (currentContent && !currentContent.endsWith(' ') && !chunkData.startsWith(' ')) ? ' ' : '';
-                currentContent += prefix + chunkData;
-                const rehydrated = TokenManager.rehydrate(currentContent);
-                
-                setMessages(prev => prev.map(m => 
-                    m.id === botMsgId ? { ...m, content: rehydrated } : m
-                ));
-            } else if (event.type === 'error') {
-                console.error("Stream Error:", event.data);
+      await qast.chatStream(userMsg.content, (event) => {
+        if (event.type === 'status') {
+          setLoadingStatus(event.data);
+        } else if (event.type === 'token_map') {
+          const mapWithIdentity = injectIdentity(event.data);
+          TokenManager.saveMap(mapWithIdentity);
+          console.log("SecureChat: Updated Token Map", mapWithIdentity);
+        } else if (event.type === 'updated_context') {
+          // Knowledge extraction completed
+          const graph = event.data;
+          const factCount = (graph.facts || []).length;
+          const entityCount = (graph.entities || []).length;
+
+          if (factCount > 0 || entityCount > 0) {
+            const knowledgeMsg: Message = {
+              id: Date.now().toString() + '-knowledge',
+              role: 'system',
+              content: '✓ Learned ' + factCount + ' new fact' + (factCount !== 1 ? 's' : '') + ' and ' + entityCount + ' entit' + (entityCount !== 1 ? 'ies' : 'y'),
+              isKnowledgeUpdate: true
+            };
+            setMessages(prev => [...prev, knowledgeMsg]);
+          }
+        } else if (event.type === 'token_definitions') {
+          // Server sent additional token definitions (from RAG context)
+          const mapWithIdentity = injectIdentity(event.data);
+          TokenManager.saveMap(mapWithIdentity);
+          console.log("SecureChat: Merged Token Definitions", mapWithIdentity);
+
+          // Re-hydrate the current bot message with new definitions
+          setMessages(prev => prev.map(m => {
+            if (m.id === botMsgId) {
+              return { ...m, content: TokenManager.rehydrate(currentContent) };
             }
-        });
+            return m;
+          }));
+        } else if (event.type === 'context_sources') {
+          // Optionally log RAG sources
+          console.log("SecureChat: Context Sources", event.data);
+        } else if (event.type === 'debug_log' && event.data?.stage === 'composer_output') {
+          // Use the complete composer output as source of truth
+          const completeContent = event.data.content;
+          if (completeContent) {
+            currentContent = completeContent;
+            const rehydrated = TokenManager.rehydrate(currentContent);
+            setMessages(prev => prev.map(m =>
+              m.id === botMsgId ? { ...m, content: rehydrated } : m
+            ));
+          }
+        } else if (event.type === 'chunk') {
+          const chunk = String(event.data);
+
+          // Fix: Ensure proper spacing between chunks
+          // If current content ends without whitespace and new chunk starts with a letter, add space
+          if (
+            currentContent.length > 0 &&
+            /[a-zA-Z0-9\\.\\!\\?]$/.test(currentContent) &&
+            /^[a-zA-Z\\*\\_\\[]/.test(chunk)
+          ) {
+            currentContent += ' ';
+          }
+
+          currentContent += chunk;
+          const rehydrated = TokenManager.rehydrate(currentContent);
+
+          setMessages(prev => prev.map(m =>
+            m.id === botMsgId ? { ...m, content: rehydrated } : m
+          ));
+        } else if (event.type === 'error') {
+          console.error("Stream Error:", event.data);
+        }
+      }, user?.id || "anonymous", user?.username || user?.email || "User");
 
     } catch (e) {
       console.error("SecureChat Error:", e);
       const errorMsg: Message = {
         id: (Date.now() + 2).toString(),
         role: 'assistant',
-        content: "Error: " + (e instanceof Error ? e.message : ''),
+        content: "Error: " + (e instanceof Error ? e.message : ' '),
       };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
@@ -475,6 +506,8 @@ export function SecureChat() {
 
   return (
     <Card className="w-full h-full flex flex-col border-none shadow-none rounded-none bg-transparent">
+
+
       <CardContent className="flex-1 overflow-hidden p-0 flex flex-col">
         <div className="flex-1 overflow-y-auto p-4 flex flex-col" ref={scrollRef}>
           <div className="mt-auto space-y-4 w-full">
@@ -485,21 +518,21 @@ export function SecureChat() {
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   className={"flex w-full " + (
-                    msg.role === 'user' ? 'justify-end' : 
-                    msg.role === 'system' ? 'justify-center' : 
-                    'justify-start'
+                    msg.role === 'user' ? 'justify-end' :
+                      msg.role === 'system' ? 'justify-center' :
+                        'justify-start'
                   )}
                 >
                   {msg.role === 'system' ? (
-                    <div className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 text-xs border border-blue-500/20 flex items-center gap-2">
+                    <div className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                       {msg.content}
                     </div>
                   ) : (
-                    <div className={"max-w-[80%] rounded-2xl px-4 py-3 text-sm " + 
-                      (msg.role === 'user' 
-                        ? 'bg-primary text-primary-foreground rounded-br-none' 
-                        : 'bg-muted text-foreground rounded-bl-none border border-border/50')
+                    <div className={"max-w-[80%] rounded-2xl px-4 py-3 " +
+                      (msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground')
                     }>
                       <div className="prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown>
@@ -507,7 +540,7 @@ export function SecureChat() {
                         </ReactMarkdown>
                       </div>
                       {msg.role === 'assistant' && msg.isSanitized && (
-                        <div className="mt-2 text-[10px] opacity-70 flex items-center gap-1">
+                        <div className="mt-2 opacity-70 flex items-center gap-1">
                           <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                           <span>PII Rehydrated locally</span>
                         </div>
@@ -517,40 +550,39 @@ export function SecureChat() {
                 </motion.div>
               ))}
             </AnimatePresence>
-            
+
             {isLoading && (
-               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                 <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-xs text-muted-foreground flex items-center gap-2">
-                   <span>{loadingStatus || "Securely processing"}</span>
-                   <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                   </div>
-                 </div>
-               </motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none text-muted-foreground flex items-center gap-2">
+                  <span>{loadingStatus || "Securely processing"}</span>
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1.5 h-1.5 bg-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </motion.div>
             )}
           </div>
         </div>
 
-        <div className="p-4 bg-background/50 backdrop-blur border-t border-border/50 flex gap-2">
+        <div className="p-4 bg-background/50 backdrop-blur flex gap-2">
           <div className="flex-1 relative">
-            <Input 
+            <Input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               placeholder={isLoading ? "Waiting for secure response..." : "Type a message safely..."}
-              className="w-full pr-20 py-6 text-base shadow-sm border-border/50 focus-visible:ring-primary/20"
+              className="w-full pr-20 py-6 text-base bg-[var(--primary)] border-0"
               disabled={isLoading}
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
-              <Button 
-                onClick={handleSend} 
+              <Button
+                onClick={handleSend}
                 disabled={isLoading || !input.trim()}
-                size="sm"
-                className="h-8"
+                className="bg-[var(--secondary)] p-2 hover:bg-[var(--secondary-hover)]"
               >
-                Send
+                <img src="/assets/SendButton.svg" alt="Send" width={24} height={24} className="w-6 h-6 filter invert light:invert-0" />
               </Button>
             </div>
           </div>
