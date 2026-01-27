@@ -175,19 +175,21 @@ type secureChatResponse struct {
 }
 
 type secureChatRequest struct {
-	Text   string `json:"text"`
-	UserID string `json:"user_id"`
+	Text      string `json:"text"`
+	UserID    string `json:"user_id"`
+	SessionID string `json:"session_id,omitempty"`
 }
 
 // SecureChat now returns a ReadCloser for the SSE stream
-func (q *QastDriver) SecureChat(ctx context.Context, text, userId, token string) (io.ReadCloser, error) {
+func (q *QastDriver) SecureChat(ctx context.Context, text, userId, sessionId, token string) (io.ReadCloser, error) {
 	if q == nil || q.httpClient == nil {
 		return nil, fmt.Errorf("qast driver is nil")
 	}
 
 	reqBody := secureChatRequest{
-		Text:   text,
-		UserID: userId,
+		Text:      text,
+		UserID:    userId,
+		SessionID: sessionId,
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -221,4 +223,204 @@ func (q *QastDriver) SecureChat(ctx context.Context, text, userId, token string)
 	}
 
 	return resp.Body, nil
+}
+
+// -- History Methods --
+
+func (q *QastDriver) CreateSession(ctx context.Context, userID, title string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/sessions", q.baseURL)
+	reqBody := map[string]string{"user_id": userID, "title": title}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("failed to create session: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) GetSessions(ctx context.Context, userID string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/sessions?user_id=%s", q.baseURL, userID)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get sessions: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) GetSession(ctx context.Context, sessionID string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/sessions/%s", q.baseURL, sessionID)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get session: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) DeleteSession(ctx context.Context, sessionID string) error {
+	url := fmt.Sprintf("%s/api/v1/history/sessions/%s", q.baseURL, sessionID)
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to delete session: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (q *QastDriver) ShareSession(ctx context.Context, sessionID, targetUsername string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/sessions/%s/share", q.baseURL, sessionID)
+	reqBody := map[string]string{"target_username": targetUsername}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to share session: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) SearchUsers(ctx context.Context, query string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/users/search?q=%s", q.baseURL, query)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to search users: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) SyncUser(ctx context.Context, id, email, username, firstName, lastName string) error {
+	url := fmt.Sprintf("%s/api/v1/users", q.baseURL)
+	reqBody := map[string]string{
+		"id":         id,
+		"email":      email,
+		"username":   username,
+		"first_name": firstName,
+		"last_name":  lastName,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusConflict {
+		// Ignore conflict/existing
+		return fmt.Errorf("failed to sync user: %d", resp.StatusCode)
+	}
+	return nil
 }

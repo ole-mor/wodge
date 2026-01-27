@@ -98,6 +98,12 @@ func Start(port int) {
 		api.POST("/qast/ingest/async", handleQastIngestAsync)
 		api.POST("/qast/chat", handleQastSecureChat)
 
+		// History Routes (Qast Proxy)
+		api.POST("/history/sessions", handleHistoryCreateSession)
+		api.GET("/history/sessions", handleHistoryGetSessions)
+		api.GET("/history/sessions/:id", handleHistoryGetSession)
+		api.DELETE("/history/sessions/:id", handleHistoryDeleteSession)
+
 		// Auth Routes
 		api.POST("/auth/login", handleAuthLogin)
 		api.POST("/auth/register", handleAuthRegister)
@@ -105,6 +111,10 @@ func Start(port int) {
 		api.POST("/auth/verify", handleAuthVerify)
 		api.GET("/users/me", handleAuthVerify) // Alias for verify
 		api.POST("/auth/logout", handleAuthLogout)
+		api.GET("/users/search", handleUsersSearch)
+
+		// Share Route
+		api.POST("/history/sessions/:id/share", handleHistoryShareSession)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -377,15 +387,15 @@ func handleQastIngestAsync(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "accepted", "message": "Ingestion started in background"})
 }
 
-// POST /api/qast/chat { "text": "..." }
 func handleQastSecureChat(c *gin.Context) {
 	if qastSvc == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
 		return
 	}
 	var req struct {
-		Text   string `json:"text"`
-		UserID string `json:"user_id"`
+		Text      string `json:"text"`
+		UserID    string `json:"user_id"`
+		SessionID string `json:"session_id"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -400,7 +410,7 @@ func handleQastSecureChat(c *gin.Context) {
 	}
 	log.Printf("[Wodge Server] SecureChat Auth: HeaderLen=%d, TokenLen=%d", len(authHeader), len(token))
 
-	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID, token)
+	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID, req.SessionID, token)
 	if err != nil {
 		log.Printf("[Wodge] SecureChat failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -437,6 +447,79 @@ func handleQastSecureChat(c *gin.Context) {
 	}
 }
 
+// -- History Handlers --
+
+func handleHistoryCreateSession(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	var req struct {
+		UserID string `json:"user_id"`
+		Title  string `json:"title"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sess, err := qastSvc.CreateSession(c.Request.Context(), req.UserID, req.Title)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, sess)
+}
+
+func handleHistoryGetSessions(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	userID := c.Query("user_id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id required"})
+		return
+	}
+	sessions, err := qastSvc.GetSessions(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, sessions)
+}
+
+func handleHistoryGetSession(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	sessionID := c.Param("id")
+	sess, err := qastSvc.GetSession(c.Request.Context(), sessionID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		// Naive check for 404
+		if err.Error() == "failed to get session: 404" {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, sess)
+}
+
+func handleHistoryDeleteSession(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	sessionID := c.Param("id")
+	if err := qastSvc.DeleteSession(c.Request.Context(), sessionID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+}
+
 // -- AstAuth Handlers --
 
 // POST /api/auth/login
@@ -458,6 +541,17 @@ func handleAuthLogin(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Sync User to QAST
+	if qastSvc != nil {
+		go func() {
+			ctx := context.Background() // detach context
+			if err := qastSvc.SyncUser(ctx, resp.User.ID, resp.User.Email, resp.User.Username, resp.User.FirstName, resp.User.LastName); err != nil {
+				log.Printf("[Wodge] Failed to sync user %s to Qast: %v", resp.User.ID, err)
+			}
+		}()
+	}
+
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -533,6 +627,17 @@ func handleAuthVerify(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
+
+	// Sync User to QAST (Async to not block response)
+	if qastSvc != nil {
+		go func() {
+			ctx := context.Background()
+			if err := qastSvc.SyncUser(ctx, user.ID, user.Email, user.Username, user.FirstName, user.LastName); err != nil {
+				log.Printf("[Wodge] Failed to sync user %s to Qast: %v", user.ID, err)
+			}
+		}()
+	}
+
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
@@ -556,4 +661,43 @@ func handleAuthLogout(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}
+
+func handleHistoryShareSession(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	sessionID := c.Param("id")
+	var req struct {
+		TargetUsername string `json:"target_username"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := qastSvc.ShareSession(c.Request.Context(), sessionID, req.TargetUsername)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func handleUsersSearch(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' is required"})
+		return
+	}
+	resp, err := qastSvc.SearchUsers(c.Request.Context(), query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
