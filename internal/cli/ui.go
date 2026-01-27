@@ -43,6 +43,9 @@ func addUIComponent(cmd *cobra.Command, args []string) {
 		addComponentFile(appRoot, "token-manager", "src/utils/TokenManager.ts", templates.ComponentTokenManager)
 	case "sidebar":
 		addComponentFile(appRoot, "sidebar", "src/components/ui/Sidebar.tsx", templates.ComponentSidebar)
+		// Sidebar needs API clients
+		addComponentFile(appRoot, "users-api", "src/api/users.ts", templates.ComponentUsersAPI)
+		addComponentFile(appRoot, "history-api", "src/api/history.ts", templates.ComponentHistoryAPI)
 	case "secure-chat", "llm-chat":
 		addSecureChatComponent(appRoot)
 	case "llmwrapper":

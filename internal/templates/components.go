@@ -904,28 +904,160 @@ export default function LoginPage() {
 }
 `
 
+const ComponentUsersAPI = `import { apiGet } from '@/lib/wodge';
+
+export interface User {
+    id: string;
+    username: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+}
+
+export const usersApi = {
+    // Search users by username query
+    async searchUsers(query: string): Promise<User[]> {
+        if (!query) return [];
+        const res = await apiGet<any>('/users/search?q=' + encodeURIComponent(query));
+        return res.data || res || [];
+    }
+};
+`
+
+const ComponentHistoryAPI = `import { apiPost, apiGet, apiDelete } from '@/lib/wodge';
+
+export interface ChatSession {
+    id: string;
+    user_id: string;
+    title: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ChatMessage {
+    id: string;
+    session_id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    created_at: string;
+}
+
+export const history = {
+    // Create a new session
+    async createSession(userId: string, title: string = "New Chat"): Promise<ChatSession> {
+        return apiPost('/history/sessions', { user_id: userId, title });
+    },
+
+    // Get all sessions for a user
+    async getSessions(userId: string): Promise<ChatSession[]> {
+        return apiGet('/history/sessions?user_id=' + userId);
+    },
+
+    // Get a specific session (returns session details + messages)
+    async getSession(sessionId: string): Promise<{ session: ChatSession; messages: ChatMessage[] }> {
+        return apiGet('/history/sessions/' + sessionId);
+    },
+
+    // Delete a session
+    async deleteSession(sessionId: string): Promise<{ status: string }> {
+        return apiDelete('/history/sessions/' + sessionId);
+    },
+
+    // Share a session
+    async shareSession(sessionId: string, targetUsername: string): Promise<{ status: string; shared_with: string }> {
+        return apiPost('/history/sessions/' + sessionId + '/share', { target_username: targetUsername });
+    }
+};
+`
+
 const ComponentSidebar = `import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
 import { useAuth } from '@/context/AuthProvider';
 import { useNavigate } from 'react-router-dom';
-import MenuIcon from '@mui/icons-material/Menu';
+import { history as historyApi, ChatSession } from '../../api/history';
+import { usersApi, User as ApiUser } from '../../api/users';
 import AddIcon from '@mui/icons-material/Add';
 import HistoryIcon from '@mui/icons-material/History';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
+import ShareIcon from '@mui/icons-material/Share';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
+
 
 interface SidebarProps {
     isOpen: boolean;
     setIsOpen: (open: boolean) => void;
+    userId?: string;
+    currentSessionId?: string | null;
+    onSelectSession?: (id: string) => void;
+    onNewChat?: () => void;
 }
 
 
-export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+export function Sidebar({ isOpen, setIsOpen, userId, currentSessionId, onSelectSession, onNewChat }: SidebarProps) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+    const [sessions, setSessions] = React.useState<ChatSession[]>([]);
+
+    // Share State
+    const [shareTarget, setShareTarget] = React.useState<string | null>(null); // Session ID to share
+    const [shareUsername, setShareUsername] = React.useState("");
+    const [isSharing, setIsSharing] = React.useState(false);
+
+    // Autocomplete State
+    const [userSearchResults, setUserSearchResults] = React.useState<ApiUser[]>([]);
+    const [isSearchingUsers, setIsSearchingUsers] = React.useState(false);
+
+    React.useEffect(() => {
+        const effectiveUserId = userId || user?.id;
+        if (effectiveUserId) {
+            loadSessions(effectiveUserId);
+        }
+    }, [userId, user]);
+
+    const loadSessions = async (uid: string) => {
+        try {
+            const data = await historyApi.getSessions(uid);
+            setSessions(data || []);
+        } catch (err) {
+            console.error("Failed to load sessions:", err);
+            setSessions([]);
+        }
+    };
+
+    const handleShare = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!shareTarget || !shareUsername) return;
+        setIsSharing(true);
+        try {
+            await historyApi.shareSession(shareTarget, shareUsername);
+            alert('Chat shared with ' + shareUsername);
+            setShareTarget(null);
+            setShareUsername("");
+        } catch (err: any) {
+            console.error("Failed to share session:", err);
+            alert("Failed to share: " + (err.message || "Unknown error"));
+        } finally {
+            setIsSharing(false);
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this chat?")) return;
+        try {
+            await historyApi.deleteSession(id);
+            setSessions(prev => prev.filter(s => s.id !== id));
+            if (currentSessionId === id && onNewChat) {
+                onNewChat();
+            }
+        } catch (err) {
+            console.error("Failed to delete session:", err);
+        }
+    };
 
     const handleLogout = async () => {
         await logout();
@@ -933,7 +1065,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     };
 
     const sidebarVariants = {
-        open: { width: "16rem", opacity: 1, x: 0 },
+        open: { width: "300px", opacity: 1, x: 0 },
         closed: { width: 0, opacity: 0, x: -50 }
     };
 
@@ -946,58 +1078,178 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                     exit="closed"
                     variants={sidebarVariants}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="flex-col bg-muted/40 border-r border-border/50 h-full overflow-hidden"
+                    className="flex-col w-[300px] bg-[var(--secondary-background)] h-full overflow-hidden border-r border-border/50"
                 >
-                    <div className="p-4 border-b border-border/50 flex items-center justify-end min-w-[16rem]">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setIsOpen(false)}>
+                    <div className="p-4 flex items-center justify-end">
+                        <Button variant="ghost" size="sm" className="p-2 hover:bg-muted" onClick={() => setIsOpen(false)}>
                             <KeyboardDoubleArrowLeftIcon fontSize="small" />
                         </Button>
                     </div>
 
-                    <div className="flex flex-col h-[calc(100%-4rem)] min-w-[16rem]"> {/* Wrapper for consistent width content */}
-                        <div className="p-4 space-y-2">
-                            <Button variant="secondary" className="w-full justify-start gap-2 shadow-sm border border-border/50 bg-background hover:bg-muted/80">
+                    <div className="flex flex-col h-[calc(100%-4rem)] w-full">
+                        <div className="px-4 pb-4">
+                            <Button
+                                variant="secondary"
+                                className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                                onClick={onNewChat}
+                            >
                                 <AddIcon fontSize="small" />
                                 <span>New Chat</span>
                             </Button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto px-4 py-2">
-                            <div className="text-xs font-semibold text-muted-foreground mb-3 px-2 uppercase tracking-wider">History</div>
+                        <div className="flex-1 overflow-y-auto px-2 py-2">
+                            <div className="text-xs font-semibold text-muted-foreground mb-2 px-4 uppercase tracking-wider">History</div>
                             <div className="space-y-1">
-                                {[1, 2, 3].map(i => (
-                                    <Button key={i} variant="ghost" className="w-full justify-start text-sm font-normal text-muted-foreground hover:text-foreground h-auto py-2">
-                                        <HistoryIcon fontSize="small" className="mr-2 opacity-70" />
-                                        <span className="truncate">Previous Session {i}</span>
-                                    </Button>
+                                {(!sessions || sessions.length === 0) && (
+                                    <p className="text-sm text-muted-foreground px-4 py-2">No history yet</p>
+                                )}
+                                {Array.isArray(sessions) && sessions.map(session => (
+                                    <div
+                                        key={session.id}
+                                        onClick={() => onSelectSession?.(session.id)}
+                                        className={"group w-full text-left px-3 py-2 rounded-md text-sm transition-colors cursor-pointer flex justify-between items-center " + 
+                                            (currentSessionId === session.id
+                                                ? 'bg-muted font-medium text-foreground'
+                                                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground')}
+                                    >
+                                        <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                            <HistoryIcon fontSize="small" className="opacity-70 flex-shrink-0" />
+                                            <span className="truncate">
+                                                {session.title || "Untitled Chat"}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShareTarget(session.id);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 hover:text-primary rounded transition-all mr-1"
+                                            title="Share"
+                                        >
+                                            <ShareIcon fontSize="inherit" style={{ fontSize: '16px' }} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDelete(e, session.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-all"
+                                            title="Delete"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="p-4 border-t border-border/50 bg-muted/20">
+                        <div className="p-4 mt-auto border-t border-border/10">
                             {user && (
-                                <div className="flex items-center gap-3 mb-4 px-2">
-                                    <div className="h-8 w-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs ring-2 ring-background shadow-sm">
-                                        {user.username?.[0]?.toUpperCase() || 'U'}
-                                    </div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <div className="text-sm font-medium truncate">{user.username}</div>
-                                        <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-                                    </div>
-                                </div>
-                            )}
-                            <div className="space-y-1">
-                                <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
-                                    <SettingsIcon fontSize="small" />
-                                    <span>Settings</span>
-                                </Button>
-                                <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
-                                    <LogoutIcon fontSize="small" />
-                                    <span>Log Out</span>
-                                </Button>
-                            </div>
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={() => setUserMenuOpen(!userMenuOpen)}
+                                        className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                                    >
+                                        <div className="h-8 w-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs ring-1 ring-primary/20">
+                                            {user.username?.[0]?.toUpperCase() || 'U'}
+                                        </div>
+                                        <div className="flex-1 text-left font-medium text-sm overflow-hidden">
+                                            <div className="truncate">{user.username}</div>
+                                        </div>
+                                        <motion.div
+                                            animate={{ rotate: userMenuOpen ? 180 : 0 }}
+                                            transition={{ duration: 0.2 }}
+                                        >
+                                            <ExpandMoreIcon fontSize="small" className="text-muted-foreground" />
+                                        </motion.div>
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {userMenuOpen && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: "auto", opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="overflow-hidden"
+                                            >
+                                                <div className="pt-2 space-y-1">
+                                                    <Button variant="ghost" className="w-full justify-start gap-2 text-sm font-normal">
+                                                        <SettingsIcon fontSize="small" />
+                                                        <span>Settings</span>
+                                                    </Button>
+                                                    <Button variant="ghost" className="w-full justify-start gap-2 text-sm font-normal text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+                                                        <LogoutIcon fontSize="small" />
+                                                        <span>Log Out</span>
+                                                    </Button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div >
+                            )
+                            }
                         </div>
                     </div>
+
+                    {/* Share Dialog Overlay */}
+                    {shareTarget && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-background border border-border rounded-lg shadow-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-semibold mb-4">Share Chat</h3>
+                                <form onSubmit={handleShare} className="space-y-4">
+                                    <div className="relative">
+                                        <label className="text-sm font-medium mb-1 block">Username to share with</label>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={shareUsername}
+                                            onChange={async (e) => {
+                                                const val = e.target.value;
+                                                setShareUsername(val);
+                                                if (val.length > 0) {
+                                                    setIsSearchingUsers(true);
+                                                    try {
+                                                        const results = await usersApi.searchUsers(val);
+                                                        // Filter self
+                                                        const filtered = (results || []).filter(u => u.username !== user?.username);
+                                                        setUserSearchResults(filtered);
+                                                    } catch (err) {
+                                                        console.error("Search failed", err);
+                                                    } finally {
+                                                        setIsSearchingUsers(false);
+                                                    }
+                                                } else {
+                                                    setUserSearchResults([]);
+                                                }
+                                            }}
+                                            className="w-full p-2 rounded-md border border-input bg-background"
+                                            placeholder="Enter username..."
+                                        />
+                                        {userSearchResults.length > 0 && shareUsername && (
+                                            <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-md mt-1 max-h-40 overflow-y-auto">
+                                                {userSearchResults.map(u => (
+                                                    <div
+                                                        key={u.id}
+                                                        className="p-2 hover:bg-muted cursor-pointer text-sm"
+                                                        onClick={() => {
+                                                            setShareUsername(u.username);
+                                                            setUserSearchResults([]);
+                                                        }}
+                                                    >
+                                                        {u.username} {u.first_name ? '(' + u.first_name + ')' : ''}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                        <Button type="button" variant="ghost" onClick={() => { setShareTarget(null); setShareUsername(""); setUserSearchResults([]); }}>Cancel</Button>
+                                        <Button type="submit" disabled={!shareUsername || isSharing}>
+                                            {isSharing ? "Sharing..." : "Share"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </motion.div>
             )}
         </AnimatePresence>

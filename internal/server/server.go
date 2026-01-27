@@ -632,8 +632,11 @@ func handleAuthVerify(c *gin.Context) {
 	if qastSvc != nil {
 		go func() {
 			ctx := context.Background()
+			log.Printf("[Wodge] Syncing user %s (%s) to Qast...", user.ID, user.Username)
 			if err := qastSvc.SyncUser(ctx, user.ID, user.Email, user.Username, user.FirstName, user.LastName); err != nil {
 				log.Printf("[Wodge] Failed to sync user %s to Qast: %v", user.ID, err)
+			} else {
+				log.Printf("[Wodge] Successfully synced user %s to Qast", user.ID)
 			}
 		}()
 	}
