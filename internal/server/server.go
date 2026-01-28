@@ -121,6 +121,7 @@ func Start(port int) {
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
+	log.Println("--- WODGE SERVER VERSION: CONTEXT_UPDATE_PATCHED ---")
 	log.Println("Frontend will access APIs via: http://localhost:5173/api")
 
 	// Format address
