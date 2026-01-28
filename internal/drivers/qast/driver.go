@@ -450,3 +450,30 @@ func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) erro
 	}
 	return nil
 }
+
+func (q *QastDriver) GetContext(ctx context.Context, id string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/context/%s", q.baseURL, id)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get context: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}

@@ -118,6 +118,7 @@ func Start(port int) {
 
 		// Context Routes
 		api.PUT("/context/:id", handleContextUpdate)
+		api.GET("/context/:id", handleContextGet)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -728,4 +729,18 @@ func handleContextUpdate(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+}
+
+func handleContextGet(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	id := c.Param("id")
+	ctxData, err := qastSvc.GetContext(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, ctxData)
 }
