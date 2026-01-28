@@ -175,21 +175,23 @@ type secureChatResponse struct {
 }
 
 type secureChatRequest struct {
-	Text      string `json:"text"`
-	UserID    string `json:"user_id"`
-	SessionID string `json:"session_id,omitempty"`
+	Text            string `json:"text"`
+	UserID          string `json:"user_id"`
+	SessionID       string `json:"session_id,omitempty"`
+	TargetMessageID string `json:"target_message_id,omitempty"`
 }
 
 // SecureChat now returns a ReadCloser for the SSE stream
-func (q *QastDriver) SecureChat(ctx context.Context, text, userId, sessionId, token string) (io.ReadCloser, error) {
+func (q *QastDriver) SecureChat(ctx context.Context, text, userId, sessionId, targetMessageID, token string) (io.ReadCloser, error) {
 	if q == nil || q.httpClient == nil {
 		return nil, fmt.Errorf("qast driver is nil")
 	}
 
 	reqBody := secureChatRequest{
-		Text:      text,
-		UserID:    userId,
-		SessionID: sessionId,
+		Text:            text,
+		UserID:          userId,
+		SessionID:       sessionId,
+		TargetMessageID: targetMessageID,
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -476,4 +478,33 @@ func (q *QastDriver) GetContext(ctx context.Context, id string) (interface{}, er
 		return nil, err
 	}
 	return result, nil
+}
+
+func (q *QastDriver) UpdateMessage(ctx context.Context, sessionID, messageID, content string, metadata map[string]interface{}) error {
+	url := fmt.Sprintf("%s/api/v1/history/sessions/%s/messages/%s", q.baseURL, sessionID, messageID)
+	reqBody := map[string]interface{}{
+		"content":  content,
+		"metadata": metadata,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to update message: %d", resp.StatusCode)
+	}
+	return nil
 }

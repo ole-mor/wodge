@@ -30,7 +30,7 @@ type QueueService interface {
 type QastService interface {
 	Ask(ctx context.Context, query, userId, expertise string) (string, []string, error)
 	IngestGraph(ctx context.Context, text, userId string) (interface{}, error)
-	SecureChat(ctx context.Context, text, userId, sessionId, token string) (io.ReadCloser, error)
+	SecureChat(ctx context.Context, text, userId, sessionId, targetMessageID, token string) (io.ReadCloser, error)
 	CreateSession(ctx context.Context, userID, title string) (interface{}, error)
 	GetSessions(ctx context.Context, userID string) (interface{}, error)
 	GetSession(ctx context.Context, sessionID string) (interface{}, error)
@@ -40,4 +40,5 @@ type QastService interface {
 	SyncUser(ctx context.Context, id, email, username, firstName, lastName string) error
 	UpdateContext(ctx context.Context, id, content string) error
 	GetContext(ctx context.Context, id string) (interface{}, error)
+	UpdateMessage(ctx context.Context, sessionID, messageID, content string, metadata map[string]interface{}) error
 }
