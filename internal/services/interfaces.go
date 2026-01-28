@@ -38,4 +38,5 @@ type QastService interface {
 	ShareSession(ctx context.Context, sessionID, targetUsername string) (interface{}, error)
 	SearchUsers(ctx context.Context, query string) (interface{}, error)
 	SyncUser(ctx context.Context, id, email, username, firstName, lastName string) error
+	UpdateContext(ctx context.Context, id, content string) error
 }

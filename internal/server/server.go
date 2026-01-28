@@ -115,6 +115,9 @@ func Start(port int) {
 
 		// Share Route
 		api.POST("/history/sessions/:id/share", handleHistoryShareSession)
+
+		// Context Routes
+		api.PUT("/context/:id", handleContextUpdate)
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
@@ -703,4 +706,25 @@ func handleUsersSearch(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func handleContextUpdate(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	id := c.Param("id")
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := qastSvc.UpdateContext(c.Request.Context(), id, req.Content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }
