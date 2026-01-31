@@ -30,7 +30,7 @@ type QueueService interface {
 type QastService interface {
 	Ask(ctx context.Context, query, userId, expertise string) (string, []string, error)
 	IngestGraph(ctx context.Context, text, userId string) (interface{}, error)
-	SecureChat(ctx context.Context, text, userId, sessionId, targetMessageID, token string) (io.ReadCloser, error)
+	SecureChat(ctx context.Context, text, userId, sessionId, targetMessageID, useVectorID, token string) (io.ReadCloser, error)
 	CreateSession(ctx context.Context, userID, title string) (interface{}, error)
 	GetSessions(ctx context.Context, userID string) (interface{}, error)
 	GetSession(ctx context.Context, sessionID string) (interface{}, error)

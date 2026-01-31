@@ -402,6 +402,7 @@ func handleQastSecureChat(c *gin.Context) {
 		UserID          string `json:"user_id"`
 		SessionID       string `json:"session_id"`
 		TargetMessageID string `json:"target_message_id"`
+		UseVectorID     string `json:"use_vector_id"`
 	}
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -416,7 +417,7 @@ func handleQastSecureChat(c *gin.Context) {
 	}
 	log.Printf("[Wodge Server] SecureChat Auth: HeaderLen=%d, TokenLen=%d", len(authHeader), len(token))
 
-	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID, req.SessionID, req.TargetMessageID, token)
+	stream, err := qastSvc.SecureChat(c.Request.Context(), req.Text, req.UserID, req.SessionID, req.TargetMessageID, req.UseVectorID, token)
 	if err != nil {
 		log.Printf("[Wodge] SecureChat failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -179,10 +179,11 @@ type secureChatRequest struct {
 	UserID          string `json:"user_id"`
 	SessionID       string `json:"session_id,omitempty"`
 	TargetMessageID string `json:"target_message_id,omitempty"`
+	UseVectorID     string `json:"use_vector_id,omitempty"`
 }
 
 // SecureChat now returns a ReadCloser for the SSE stream
-func (q *QastDriver) SecureChat(ctx context.Context, text, userId, sessionId, targetMessageID, token string) (io.ReadCloser, error) {
+func (q *QastDriver) SecureChat(ctx context.Context, text, userId, sessionId, targetMessageID, useVectorID, token string) (io.ReadCloser, error) {
 	if q == nil || q.httpClient == nil {
 		return nil, fmt.Errorf("qast driver is nil")
 	}
@@ -192,6 +193,7 @@ func (q *QastDriver) SecureChat(ctx context.Context, text, userId, sessionId, ta
 		UserID:          userId,
 		SessionID:       sessionId,
 		TargetMessageID: targetMessageID,
+		UseVectorID:     useVectorID,
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
