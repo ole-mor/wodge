@@ -548,6 +548,18 @@ func handleAuthLogin(c *gin.Context) {
 		return
 	}
 
+	// If User ID is missing (common with some auth providers on login vs verify), fetch full profile
+	if resp.User.ID == "" {
+		// VerifyToken fetches /users/me which usually has full details
+		fullUser, err := astAuthSvc.VerifyToken(c.Request.Context(), resp.AccessToken)
+		if err != nil {
+			log.Printf("[Wodge] Login succeeded but failed to fetch full user profile: %v", err)
+			// Proceed with what we have, but log warning. Sync likely fails.
+		} else {
+			resp.User = *fullUser
+		}
+	}
+
 	// Sync User to QAST
 	if qastSvc != nil {
 		go func() {
