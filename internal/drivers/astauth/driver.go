@@ -45,7 +45,10 @@ type User struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
-	Role      string `json:"role"`
+	Roles     []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"roles,omitempty"`
 }
 
 func (d *AstAuthDriver) Login(ctx context.Context, username, password string) (*AuthResponse, error) {
