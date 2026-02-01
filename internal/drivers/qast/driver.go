@@ -429,6 +429,32 @@ func (q *QastDriver) SyncUser(ctx context.Context, id, email, username, firstNam
 	return nil
 }
 
+func (q *QastDriver) UpdateExpertise(ctx context.Context, id, level string) error {
+	url := fmt.Sprintf("%s/api/v1/users/%s/expertise", q.baseURL, id)
+	reqBody := map[string]string{"level": level}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to update expertise: %d", resp.StatusCode)
+	}
+	return nil
+}
+
 func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) error {
 	url := fmt.Sprintf("%s/api/v1/context/%s", q.baseURL, id)
 	reqBody := map[string]string{"content": content}

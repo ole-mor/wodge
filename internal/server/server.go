@@ -112,6 +112,7 @@ func Start(port int) {
 		api.GET("/users/me", handleAuthVerify) // Alias for verify
 		api.POST("/auth/logout", handleAuthLogout)
 		api.GET("/users/search", handleUsersSearch)
+		api.PUT("/qast/users/:id/expertise", handleQastUpdateExpertise)
 
 		// Share Route
 		api.POST("/history/sessions/:id/share", handleHistoryShareSession)
@@ -722,6 +723,27 @@ func handleUsersSearch(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func handleQastUpdateExpertise(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+	id := c.Param("id")
+	var req struct {
+		Level string `json:"level"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := qastSvc.UpdateExpertise(c.Request.Context(), id, req.Level); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }
 
 func handleContextUpdate(c *gin.Context) {

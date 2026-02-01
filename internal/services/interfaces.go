@@ -41,4 +41,5 @@ type QastService interface {
 	UpdateContext(ctx context.Context, id, content string) error
 	GetContext(ctx context.Context, id string) (interface{}, error)
 	UpdateMessage(ctx context.Context, sessionID, messageID, content string, metadata map[string]interface{}) error
+	UpdateExpertise(ctx context.Context, id, level string) error
 }
