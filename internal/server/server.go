@@ -713,10 +713,8 @@ func handleUsersSearch(c *gin.Context) {
 		return
 	}
 	query := c.Query("q")
-	if query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' is required"})
-		return
-	}
+	// Allow empty query to fetch all users (up to limit)
+
 	resp, err := qastSvc.SearchUsers(c.Request.Context(), query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -760,11 +758,13 @@ func handleContextUpdate(c *gin.Context) {
 		return
 	}
 
-	if err := qastSvc.UpdateContext(c.Request.Context(), id, req.Content); err != nil {
+	result, err := qastSvc.UpdateContext(c.Request.Context(), id, req.Content)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+	// Pass through the full response from qast (includes graph and token_map)
+	c.JSON(http.StatusOK, result)
 }
 
 func handleContextGet(c *gin.Context) {

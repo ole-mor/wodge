@@ -455,14 +455,14 @@ func (q *QastDriver) UpdateExpertise(ctx context.Context, id, level string) erro
 	return nil
 }
 
-func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) error {
+func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/api/v1/context/%s", q.baseURL, id)
 	reqBody := map[string]string{"content": content}
 	jsonBody, _ := json.Marshal(reqBody)
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if q.apiKey != "" {
@@ -471,14 +471,21 @@ func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) erro
 
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to update context: %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to update context: %d", resp.StatusCode)
 	}
-	return nil
+
+	// Parse the response to get graph and token_map
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return result, nil
 }
 
 func (q *QastDriver) GetContext(ctx context.Context, id string) (interface{}, error) {
