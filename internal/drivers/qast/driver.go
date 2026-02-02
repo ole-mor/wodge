@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"time"
 	"wodge/internal/services"
@@ -542,4 +543,51 @@ func (q *QastDriver) UpdateMessage(ctx context.Context, sessionID, messageID, co
 		return fmt.Errorf("failed to update message: %d", resp.StatusCode)
 	}
 	return nil
+}
+
+func (q *QastDriver) UploadFile(ctx context.Context, file multipart.File, filename string) (string, error) {
+	url := fmt.Sprintf("%s/api/v1/misc/upload", q.baseURL)
+
+	// Create multipart body
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return "", err
+	}
+	if err := writer.Close(); err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, body)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// Try to read error
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("upload failed (%d): %s", resp.StatusCode, string(b))
+	}
+
+	var result struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	return result.Text, nil
 }

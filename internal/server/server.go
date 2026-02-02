@@ -97,6 +97,7 @@ func Start(port int) {
 		api.POST("/qast/ingest", handleQastIngest)
 		api.POST("/qast/ingest/async", handleQastIngestAsync)
 		api.POST("/qast/chat", handleQastSecureChat)
+		api.POST("/qast/upload", handleQastUpload)
 
 		// History Routes (Qast Proxy)
 		api.POST("/history/sessions", handleHistoryCreateSession)
@@ -123,7 +124,7 @@ func Start(port int) {
 	}
 
 	log.Printf("Starting Wodge API server on :%d\n", port)
-	log.Println("--- WODGE SERVER VERSION: CONTEXT_UPDATE_PATCHED ---")
+	log.Println("--- WODGE SERVER VERSION: FILE_UPLOAD_ADDED ---")
 	log.Println("Frontend will access APIs via: http://localhost:5173/api")
 
 	// Format address
@@ -452,6 +453,33 @@ func handleQastSecureChat(c *gin.Context) {
 			}
 			break
 		}
+	}
+}
+
+// POST /api/qast/upload
+func handleQastUpload(c *gin.Context) {
+	if qastSvc == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "QAST not configured"})
+		return
+	}
+
+	// Forward file to Qast
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
+		return
+	}
+	defer file.Close()
+
+	if qastDriver, ok := qastSvc.(*qast.QastDriver); ok {
+		text, err := qastDriver.UploadFile(c.Request.Context(), file, header.Filename)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"filename": header.Filename, "text": text})
+	} else {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "Qast driver does not support upload"})
 	}
 }
 
