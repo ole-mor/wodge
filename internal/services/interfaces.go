@@ -34,6 +34,7 @@ type QastService interface {
 	CreateSession(ctx context.Context, userID, title string) (interface{}, error)
 	GetSessions(ctx context.Context, userID string) (interface{}, error)
 	GetSession(ctx context.Context, sessionID string) (interface{}, error)
+	GetLatestSession(ctx context.Context, userID string) (interface{}, error)
 	DeleteSession(ctx context.Context, sessionID string) error
 	ShareSession(ctx context.Context, sessionID, targetUsername string) (interface{}, error)
 	SearchUsers(ctx context.Context, query string) (interface{}, error)
@@ -42,4 +43,9 @@ type QastService interface {
 	GetContext(ctx context.Context, id string) (interface{}, error)
 	UpdateMessage(ctx context.Context, sessionID, messageID, content string, metadata map[string]interface{}) error
 	UpdateExpertise(ctx context.Context, id, level string) error
+	SubscribeBroadcast(ctx context.Context, userID, token string) (io.ReadCloser, error)
+	ListVectors(ctx context.Context, limit int) (interface{}, error)
+	GetUserExperimentState(ctx context.Context, userID string) (interface{}, error)
+	StartUserExperiment(ctx context.Context, userID string) (interface{}, error)
+	UpdateUserExperimentState(ctx context.Context, userID, state string) (interface{}, error)
 }

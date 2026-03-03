@@ -124,7 +124,7 @@ func (q *QastDriver) IngestGraph(ctx context.Context, text, userId string) (inte
 	reqBody := ingestRequest{
 		Text:         text,
 		UserID:       userId,
-		TemplateName: "extract_knowledge_graph", // Hardcoded for now
+		TemplateName: "ExtractKnowledgeGraph", // Hardcoded for now
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -252,7 +252,7 @@ func (q *QastDriver) CreateSession(ctx context.Context, userID, title string) (i
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to create session: %d", resp.StatusCode)
 	}
 
@@ -308,6 +308,33 @@ func (q *QastDriver) GetSession(ctx context.Context, sessionID string) (interfac
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get session: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) GetLatestSession(ctx context.Context, userID string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/sessions/latest?user_id=%s", q.baseURL, userID)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get latest session: %d", resp.StatusCode)
 	}
 
 	var result interface{}
@@ -456,8 +483,35 @@ func (q *QastDriver) UpdateExpertise(ctx context.Context, id, level string) erro
 	return nil
 }
 
+func (q *QastDriver) GetContext(ctx context.Context, id string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/vector/context/%s", q.baseURL, id)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get context: %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/api/v1/context/%s", q.baseURL, id)
+	url := fmt.Sprintf("%s/api/v1/vector/context/%s", q.baseURL, id)
 	reqBody := map[string]string{"content": content}
 	jsonBody, _ := json.Marshal(reqBody)
 
@@ -486,33 +540,6 @@ func (q *QastDriver) UpdateContext(ctx context.Context, id, content string) (map
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return result, nil
-}
-
-func (q *QastDriver) GetContext(ctx context.Context, id string) (interface{}, error) {
-	url := fmt.Sprintf("%s/api/v1/context/%s", q.baseURL, id)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if q.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+q.apiKey)
-	}
-
-	resp, err := q.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get context: %d", resp.StatusCode)
-	}
-
-	var result interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
@@ -590,4 +617,201 @@ func (q *QastDriver) UploadFile(ctx context.Context, file multipart.File, filena
 		return "", err
 	}
 	return result.Text, nil
+}
+
+func (q *QastDriver) GetAuditLogs(ctx context.Context, userID string, limit int) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/audit/logs?limit=%d", q.baseURL, limit)
+	if userID != "" {
+		url += fmt.Sprintf("&user_id=%s", userID)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get audit logs: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ResetSystem calls the admin reset endpoint to wipe all data
+func (q *QastDriver) ResetSystem(ctx context.Context) error {
+	url := fmt.Sprintf("%s/api/v1/admin/reset", q.baseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	if err != nil {
+		return err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to reset system: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (q *QastDriver) SubscribeBroadcast(ctx context.Context, userID, token string) (io.ReadCloser, error) {
+	url := fmt.Sprintf("%s/api/v1/broadcast/subscribe?userID=%s&token=%s", q.baseURL, userID, token)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	log.Printf("[QastDriver] Subscribing to broadcast: %s", url)
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to broadcast: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("broadcast subscription failed: %d", resp.StatusCode)
+	}
+
+	return resp.Body, nil
+}
+
+func (q *QastDriver) ListVectors(ctx context.Context, limit int) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/vector/all?limit=%d", q.baseURL, limit)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to list vectors: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) GetUserExperimentState(ctx context.Context, userID string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/experiment?user_id=%s", q.baseURL, userID)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get user experiment state: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (q *QastDriver) StartUserExperiment(ctx context.Context, userID string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/experiment/start", q.baseURL)
+	reqBody := map[string]string{"user_id": userID}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to start user experiment: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+func (q *QastDriver) UpdateUserExperimentState(ctx context.Context, userID, state string) (interface{}, error) {
+	url := fmt.Sprintf("%s/api/v1/history/experiment/state", q.baseURL)
+	reqBody := map[string]string{
+		"user_id": userID,
+		"state":   state,
+	}
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if q.apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+q.apiKey)
+	}
+
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to update user experiment state: %d", resp.StatusCode)
+	}
+
+	var result interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

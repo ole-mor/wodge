@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -45,6 +46,7 @@ func runDev(cmd *cobra.Command, args []string) {
 	// 1. Find a free port for Wodge backend (start at 8080)
 	// If 8080 is taken (e.g., by AstAuth), it will try 8081, etc.
 	port := findAvailablePort(8080)
+	fmt.Printf("DEBUG: findAvailablePort returned port %d\n", port)
 
 	// Write port to wodge client file so frontend knows where to look
 	updateEnvPort(cwd, port)
@@ -130,7 +132,9 @@ func runDev(cmd *cobra.Command, args []string) {
 	fmt.Printf("Starting API server on port %d...\n", port)
 	startBackend(cwd, port)
 
-	// 4. Start Vite
+	// 4. Start Vite dev server
+	// In dev mode, always start Vite regardless of dist/ folder existence.
+	// The dist/ folder is used for production builds, not dev mode.
 	viteCmd := exec.Command("npx", "vite")
 	viteCmd.Stdout = os.Stdout
 	viteCmd.Stderr = os.Stderr
@@ -145,23 +149,15 @@ func runDev(cmd *cobra.Command, args []string) {
 func findAvailablePort(startPort int) int {
 	port := startPort
 	for {
-		// Try to verify if port is available by attempting to listen on it
-		// This is a basic check.
-		// Actually, registry.GetFreePort does something similar?
-		// But registry.GetFreePort relies on the registry file, which might be stale.
-		// Let's do a real net check.
-		// Or simply reuse registry.GetFreePort if we trust it, but user specifically asked for "check ports starting from 8080".
-		// Let's implement a simple check.
-		cmd := exec.Command("lsof", "-i", fmt.Sprintf(":%d", port))
-		if err := cmd.Run(); err != nil {
-			// lsof returns error if nothing found => port is free (on mac/linux usually)
-			// Wait, lsof returns 1 if no process found? Yes.
+		// Try to listen on the port to see if it's available
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err == nil {
+			listener.Close()
 			return port
 		}
-		// If lsof found something, port is busy
 		port++
 		if port > startPort+100 {
-			return 0 // Give up
+			return startPort // Fallback to default
 		}
 	}
 }
@@ -231,19 +227,7 @@ func updateEnvPort(appPath string, port int) {
 }
 
 func updateWodgeClient(appPath string, port int) {
-	clientPath := filepath.Join(appPath, "src", "lib", "wodge.ts")
-	content, err := os.ReadFile(clientPath)
-	if err != nil {
-		return
-	}
-
-	strContent := string(content)
-	lines := strings.Split(strContent, "\n")
-	for i, line := range lines {
-		if strings.Contains(line, "const API_BASE =") {
-			lines[i] = fmt.Sprintf("export const API_BASE = 'http://localhost:%d/api';", port)
-			break
-		}
-	}
-	os.WriteFile(clientPath, []byte(strings.Join(lines, "\n")), 0644)
+	// Deprecated: We now use environment variables (VITE_API_BASE)
+	// which are handled by .env files and Vite config.
+	// We no longer overwrite the source code.
 }

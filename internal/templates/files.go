@@ -240,7 +240,10 @@ export default function Home() {
 }
 `
 
-const WodgeClientTS = `export const API_BASE = 'http://localhost:8080/api';
+const WodgeClientTS = `// @ts-ignore
+export const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+// @ts-ignore
+export const API_PREFIX = import.meta.env.VITE_API_PREFIX || '';
 
 export async function apiGet<T = any>(path: string): Promise<T> {
   const res = await fetch(API_BASE + path, {

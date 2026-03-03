@@ -13,10 +13,17 @@ import (
 
 type AstAuthService interface {
 	Login(ctx context.Context, username, password string) (*AuthResponse, error)
-	Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName string) error
+	Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName, inviteCode string) error
 	VerifyToken(ctx context.Context, accessToken string) (*User, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*AuthResponse, error)
 	Logout(ctx context.Context, accessToken, refreshToken string) error
+	ListUsers(ctx context.Context, accessToken string, limit, offset int) (*UserListResponse, error)
+	ListRoles(ctx context.Context, accessToken string) (*RoleListResponse, error)
+	AddRoleToUser(ctx context.Context, accessToken, userID, roleID string) error
+	RemoveRoleFromUser(ctx context.Context, accessToken, userID, roleID string) error
+	GenerateInvite(ctx context.Context, accessToken string) (*InviteToken, error)
+	ListInvites(ctx context.Context, accessToken string) ([]InviteToken, error)
+	ActivateUser(ctx context.Context, accessToken, userID string, active bool) (*User, error)
 }
 
 type AstAuthDriver struct {
@@ -45,10 +52,33 @@ type User struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	Active    bool   `json:"active"`
 	Roles     []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"roles,omitempty"`
+}
+
+type UserListResponse struct {
+	Users      []User `json:"users"`
+	TotalCount int64  `json:"total_count"`
+	Limit      int    `json:"limit"`
+	Offset     int    `json:"offset"`
+}
+
+type RoleListResponse struct {
+	Roles      []interface{} `json:"roles"`
+	TotalCount int64         `json:"total_count"`
+}
+
+type InviteToken struct {
+	ID        string    `json:"id"`
+	Code      string    `json:"code"`
+	CreatedBy string    `json:"created_by"`
+	UsedBy    *string   `json:"used_by"`
+	IsUsed    bool      `json:"is_used"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (d *AstAuthDriver) Login(ctx context.Context, username, password string) (*AuthResponse, error) {
@@ -146,7 +176,7 @@ func (d *AstAuthDriver) VerifyToken(ctx context.Context, accessToken string) (*U
 	return &user, nil
 }
 
-func (d *AstAuthDriver) Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName string) error {
+func (d *AstAuthDriver) Register(ctx context.Context, email, username, password, confirmPassword, firstName, lastName, inviteCode string) error {
 	reqBody := map[string]string{
 		"email":            email,
 		"username":         username,
@@ -154,6 +184,7 @@ func (d *AstAuthDriver) Register(ctx context.Context, email, username, password,
 		"confirm_password": confirmPassword,
 		"first_name":       firstName,
 		"last_name":        lastName,
+		"invite_code":      inviteCode,
 	}
 	jsonBody, _ := json.Marshal(reqBody)
 
@@ -201,5 +232,221 @@ func (d *AstAuthDriver) Logout(ctx context.Context, accessToken, refreshToken st
 		return fmt.Errorf("logout failed (status %d): %s", resp.StatusCode, string(body))
 	}
 
+	return nil
+}
+
+func (d *AstAuthDriver) ListUsers(ctx context.Context, accessToken string, limit, offset int) (*UserListResponse, error) {
+	url := fmt.Sprintf("%s/api/v1/users/all-users?limit=%d&offset=%d", d.BaseURL, limit, offset)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("list users failed (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var respData UserListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		return nil, fmt.Errorf("decode users failed: %w", err)
+	}
+	return &respData, nil
+}
+
+func (d *AstAuthDriver) ListRoles(ctx context.Context, accessToken string) (*RoleListResponse, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", d.BaseURL+"/api/v1/users/system-roles", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("list roles failed (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var respData RoleListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		return nil, fmt.Errorf("decode roles failed: %w", err)
+	}
+	return &respData, nil
+}
+
+func (d *AstAuthDriver) AddRoleToUser(ctx context.Context, accessToken, userID, roleID string) error {
+	reqBody := map[string]string{"user_id": userID, "role_id": roleID}
+	body, _ := json.Marshal(reqBody)
+	req, err := http.NewRequestWithContext(ctx, "POST", d.BaseURL+"/api/v1/users/"+userID+"/roles", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("add role failed: %s", string(b))
+	}
+	return nil
+}
+
+func (d *AstAuthDriver) RemoveRoleFromUser(ctx context.Context, accessToken, userID, roleID string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", d.BaseURL+"/api/v1/users/"+userID+"/roles/"+roleID, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("remove role failed: %s", string(b))
+	}
+	return nil
+}
+
+func (d *AstAuthDriver) GenerateInvite(ctx context.Context, accessToken string) (*InviteToken, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", d.BaseURL+"/api/v1/users/invites", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("generate invite failed: %s", string(body))
+	}
+
+	var invite InviteToken
+	if err := json.NewDecoder(resp.Body).Decode(&invite); err != nil {
+		return nil, err
+	}
+	return &invite, nil
+}
+
+func (d *AstAuthDriver) ListInvites(ctx context.Context, accessToken string) ([]InviteToken, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", d.BaseURL+"/api/v1/users/invites", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("list invites failed: %s", string(body))
+	}
+
+	var invites []InviteToken
+	if err := json.NewDecoder(resp.Body).Decode(&invites); err != nil {
+		return nil, err
+	}
+	return invites, nil
+}
+func (d *AstAuthDriver) ActivateUser(ctx context.Context, accessToken, userID string, active bool) (*User, error) {
+	reqBody := map[string]bool{"active": active}
+	body, _ := json.Marshal(reqBody)
+	req, err := http.NewRequestWithContext(ctx, "PUT", d.BaseURL+"/api/v1/users/"+userID+"/activate-user", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("activate user failed: %s", string(b))
+	}
+
+	var user User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// DeleteUser deletes a user in AstAuth (requires admin token)
+func (d *AstAuthDriver) DeleteUser(ctx context.Context, accessToken, userID string) error {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", d.BaseURL+"/api/v1/users/"+userID+"/delete-user", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete user failed: %s", string(b))
+	}
+	return nil
+}
+
+// AdminResetPassword resets a user's password (requires admin token)
+func (d *AstAuthDriver) AdminResetPassword(ctx context.Context, accessToken, userID, newPassword string) error {
+	reqBody := map[string]string{"user_id": userID, "new_password": newPassword}
+	body, _ := json.Marshal(reqBody)
+	req, err := http.NewRequestWithContext(ctx, "PUT", d.BaseURL+"/api/v1/users/"+userID+"/reset-password", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("admin reset password failed: %s", string(b))
+	}
 	return nil
 }
